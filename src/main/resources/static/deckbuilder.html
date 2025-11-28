@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Deck Builder</title>
+  <style>
+    body{font-family:system-ui;padding:20px;background:#f7f7f8}
+    .grid{display:flex;gap:12px;align-items:flex-start}
+    .cards,.deck{background:#fff;padding:12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+    .cards{flex:2}
+    .deck{flex:1;min-width:260px}
+    .card{padding:8px;border-bottom:1px solid #eee;}
+    button{padding:6px 8px;margin-left:6px}
+    #msg{color:#a00;margin-top:8px;white-space:pre-wrap}
+    .hint{font-size:0.9rem;color:#666;margin-bottom:8px}
+    .disabled {opacity:0.6; pointer-events:none;}
+  </style>
+</head>
+<body>
+<header style="display:flex;align-items:center;gap:12px;padding:12px;background:#fff;margin-bottom:12px;border-bottom:1px solid #eee">
+  <h1 style="margin:0;font-size:1.1rem">Hearthclone</h1>
+  <nav style="margin-left:8px">
+    <a href="/index.html">Главная</a> |
+    <a href="/deckbuilder.html">Сборщик</a> |
+    <a href="/match.html">Матч</a> |
+    <a href="/login.html" id="nav-login-link">Логин</a>
+  </nav>
+
+  <div style="margin-left:auto;text-align:right">
+    <div id="nav-user" class="small" style="font-size:0.9rem;color:#333"></div>
+    <button id="nav-logout" style="display:none;margin-top:4px;padding:4px 8px">Выйти</button>
+  </div>
+</header>
+
+<script>
+  (function(){
+    const name = localStorage.getItem('hc_userName');
+    const id = localStorage.getItem('hc_userId');
+    const navUser = document.getElementById('nav-user');
+    const navLogout = document.getElementById('nav-logout');
+    const navLoginLink = document.getElementById('nav-login-link');
+
+    if(name && id){
+      navUser.textContent = 'Вы: ' + name + ' (id:' + id + ')';
+      navLogout.style.display = 'inline-block';
+      navLoginLink.style.display = 'none';
+    } else {
+      navUser.textContent = 'Не вошёл';
+      navLogout.style.display = 'none';
+      navLoginLink.style.display = 'inline';
+    }
+
+    navLogout?.addEventListener('click', () => {
+      localStorage.removeItem('hc_userId');
+      localStorage.removeItem('hc_userName');
+      location.reload();
+    });
+  })();
+</script>
+
+<h1>Сборщик колод</h1>
+<p class="hint">Выбери пользователя в <a href="/login.html">Login</a> (имитация). Максимум 10 карт в колоде.</p>
+
+<div class="grid">
+  <div class="cards">
+    <h3>Все карты</h3>
+    <div id="cardsList"></div>
+  </div>
+  <div class="deck">
+    <h3>Твоя колода</h3>
+    <div id="deckList"></div>
+    <p>Выбрано: <span id="count">0</span> / <strong id="max">10</strong></p>
+    <button id="saveDeck">Сохранить колоду</button>
+    <div id="msg"></div>
+  </div>
+</div>
+
+<script>
+  const MAX_DECK_SIZE = 10; // <= 10 карт
+  let allCards = [];
+  let selected = [];
+
+  async function loadCards(){
+    const el = document.getElementById('cardsList');
+    el.innerHTML = 'Загрузка...';
+    try{
+      const r = await fetch('/cards');
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      allCards = await r.json();
+      renderCards();
+    }catch(e){
+      el.innerHTML = 'Ошибка загрузки карт';
+      console.error(e);
+    }
+  }
+
+  function renderCards(){
+    const el = document.getElementById('cardsList');
+    el.innerHTML = allCards.map(c => `
+      <div class="card">
+        <b>${escapeHtml(c.name)}</b> (${escapeHtml(c.type)}) — cost ${c.cost}
+        <button onclick="toggleCard(${c.id})">${selected.includes(c.id)?'Удалить':'Добавить'}</button>
+        <div class="small">id:${c.id}</div>
+      </div>`).join('');
+    renderDeck();
+  }
+
+  function renderDeck(){
+    const el = document.getElementById('deckList');
+    el.innerHTML = selected.length ? selected.map(id => {
+      const c = allCards.find(x=>x.id===id);
+      return `<div class="card"><b>${escapeHtml(c?.name||'??')}</b> <span class="small">id:${id}</span></div>`;
+    }).join('') : '<div class="small">Колода пустая</div>';
+    document.getElementById('count').textContent = selected.length;
+    document.getElementById('max').textContent = MAX_DECK_SIZE;
+    updateSaveButtonState();
+  }
+
+  function toggleCard(id){
+    if(selected.includes(id)){
+      selected = selected.filter(x => x !== id);
+    } else {
+      if(selected.length >= MAX_DECK_SIZE){
+        alert('Достигнут максимум карт: ' + MAX_DECK_SIZE);
+        return;
+      }
+      selected.push(id);
+    }
+    renderCards();
+  }
+
+  function escapeHtml(s){ if(!s && s!==0) return ''; return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  const saveBtn = document.getElementById('saveDeck');
+  const msgEl = document.getElementById('msg');
+
+  function updateSaveButtonState(){
+    if(selected.length === 0 || selected.length > MAX_DECK_SIZE) {
+      saveBtn.classList.add('disabled');
+    } else {
+      saveBtn.classList.remove('disabled');
+    }
+  }
+
+  saveBtn.addEventListener('click', async () => {
+    const userId = localStorage.getItem('hc_userId');
+    msgEl.textContent = '';
+    msgEl.style.color = '';
+
+    if(!userId){ msgEl.textContent = 'Выберите пользователя на странице Login'; msgEl.style.color='red'; return; }
+    if(selected.length === 0){ msgEl.textContent = 'Нельзя сохранять пустую колоду'; msgEl.style.color='red'; return; }
+    if(selected.length > MAX_DECK_SIZE){ msgEl.textContent = `Слишком много карт — максимум ${MAX_DECK_SIZE}`; msgEl.style.color='red'; return; }
+
+    try{
+      const r = await fetch(`/decks/player/${userId}`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ cardIds: selected })
+      });
+
+      if (r.ok) {
+        const res = await r.json();
+        msgEl.style.color = 'green';
+        msgEl.textContent = 'Колода сохранена (id ' + res.id + ')';
+      } else {
+        // Попробуем прочитать тело ответа (json или текст) — чтобы показать реальную причину
+        let text;
+        const ct = r.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const j = await r.json().catch(()=>null);
+          if (j) text = JSON.stringify(j);
+        } else {
+          text = await r.text().catch(()=>null);
+        }
+        msgEl.style.color = 'red';
+        msgEl.textContent = `Ошибка при сохранении: HTTP ${r.status}` + (text ? ` — ${text}` : '');
+      }
+    }catch(e){
+      msgEl.style.color = 'red';
+      msgEl.textContent = 'Ошибка при сохранении: ' + (e.message || e);
+      console.error(e);
+    }
+  });
+
+  // Инициализация
+  loadCards();
+  updateSaveButtonState();
+</script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>Hearthclone — Главная</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        body{font-family:system-ui,Segoe UI,Roboto,Arial;background:#f5f5f7;color:#222;padding:20px}
+        header{display:flex;gap:10px;align-items:center}
+        .card{padding:8px;margin:6px;border-radius:6px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+        .row{display:flex;gap:12px;flex-wrap:wrap}
+        nav a{margin-right:12px}
+        .small{font-size:0.9rem;color:#666}
+        button{cursor:pointer}
+    </style>
+</head>
+<body>
+<header>
+    <h1>Hearthclone — демо</h1>
+    <nav>
+        <a href="/index.html">Главная</a>
+        <a href="/deckbuilder.html">Сборщик колоды</a>
+        <a href="/match.html">Матч</a>
+        <a href="/login.html">Логин</a>
+    </nav>
+</header>
+
+<section>
+    <h2>Краткая панель</h2>
+    <p class="small">Выбери пользователя в <strong>Login</strong> (это просто выбор пользователя, без настоящей аутентификации), чтобы интерфейсы знали, кто ходит.</p>
+
+    <div style="display:flex;gap:20px;align-items:flex-start">
+        <div style="flex:1">
+            <h3>Игроки</h3>
+            <ul id="users" class="row"></ul>
+        </div>
+
+        <div style="flex:2">
+            <h3>Карты (пример)</h3>
+            <div id="cards" class="row"></div>
+        </div>
+    </div>
+</section>
+
+<script>
+    async function fetchUsers(){
+      const ul = document.getElementById('users');
+      ul.innerHTML = 'Загрузка...';
+      try {
+        const r = await fetch('/users');
+        if(!r.ok) throw new Error(r.status);
+        const users = await r.json();
+        ul.innerHTML = users.map(u => `<li class="card" style="min-width:160px">
+          <b>${escapeHtml(u.name)}</b><br><span class="small">rating: ${u.rating}</span><br>
+          <span class="small">id: ${u.id}</span>
+        </li>`).join('');
+      } catch(e){
+        ul.innerHTML = '<li class="card">Ошибка загрузки пользователей</li>';
+        console.error(e);
+      }
+    }
+
+    async function fetchCards(){
+      const wrap = document.getElementById('cards');
+      wrap.innerHTML = 'Загрузка...';
+      try {
+        const r = await fetch('/cards');
+        if(!r.ok) throw new Error(r.status);
+        const cards = await r.json();
+        wrap.innerHTML = cards.map(c => `<div class="card" style="min-width:200px">
+          <b>${escapeHtml(c.name)}</b> <span class="small">(${escapeHtml(c.type)})</span><br>
+          cost: ${c.cost} &nbsp; dmg: ${c.damage} &nbsp; hp: ${c.health}<br>
+          <div class="small">${escapeHtml(c.description||c.effectPayload||'')}</div>
+          <div class="small">id:${c.id}</div>
+        </div>`).join('');
+      } catch(e){
+        wrap.innerHTML = '<div class="card">Ошибка загрузки карт</div>';
+        console.error(e);
+      }
+    }
+
+    function escapeHtml(s){
+      if(!s && s!==0) return '';
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    fetchUsers();
+    fetchCards();
+</script>
+</body>
+</html>
