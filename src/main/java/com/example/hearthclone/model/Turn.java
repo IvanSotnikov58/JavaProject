@@ -2,6 +2,7 @@ package com.example.hearthclone.model;
 
 import jakarta.persistence.*;
 
+import javax.swing.*;
 import java.time.LocalDateTime;
 @Entity
 public class Turn {
@@ -12,7 +13,7 @@ public class Turn {
     private int turnNumber;
 
     @ManyToOne
-    private User player;
+    private Long player;
 
     @ManyToOne
     private Cards cards;
@@ -24,18 +25,20 @@ public class Turn {
 
     @ManyToOne
     @JoinColumn(name="matches")
-    private Match match;
+    private Long match;
+    private Action action;
 
 public Turn(){}
 
-    public Turn(int turnNumber, User player, Cards cards, String target, String result, LocalDateTime timestamp, Match match) {
+    public Turn(int turnNumber, User player, Cards cards, String target, String result, LocalDateTime timestamp, Match match, Action action) {
         this.turnNumber = turnNumber;
-        this.player = player;
+        this.player = player.getId();
         this.cards = cards;
         this.target = target;
         this.result = result;
         this.timestamp = timestamp;
-        this.match = match;
+        this.match = match.getId();
+        this.action= action;
     }
 
     public Long getId() {
@@ -54,11 +57,11 @@ public Turn(){}
         this.turnNumber = turnNumber;
     }
 
-    public User getPlayer() {
+    public Long getPlayer() {
         return player;
     }
 
-    public void setPlayer(User player) {
+    public void setPlayer(Long player) {
         this.player = player;
     }
 
@@ -94,11 +97,18 @@ public Turn(){}
         this.timestamp = timestamp;
     }
 
-    public Match getMatch() {
+    public Long getMatch() {
         return match;
     }
 
-    public void setMatch(Match match) {
+    public void setMatch(Long match) {
         this.match = match;
+    }
+
+    public Long setMatchId(Long matchId) {
+    return match;
+    }
+    public void setAction(Action action){
+    this.action=action;
     }
 }
