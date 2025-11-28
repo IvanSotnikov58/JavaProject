@@ -14,8 +14,11 @@ public class LogEntry {
     @ManyToOne
     @JoinColumn(name = "matches")
     private Match match;
+
     @ManyToOne
+    @JoinColumn(name = "turn_id")
     private Turn turn;
+
     private String description;
     private LocalDateTime timestamp;
 
@@ -29,10 +32,10 @@ public class LogEntry {
         this.timestamp = timestamp;
     }
 
-    public LogEntry(Long matchId, String player, String action) {
-        this.match=new Match();
-        this.description=action;
-        this.timestamp=null;
+    public LogEntry(Match match, String description) {
+        this.match=match;
+        this.description=description;
+        this.timestamp=LocalDateTime.now();
     }
 
     public Long getId() {
