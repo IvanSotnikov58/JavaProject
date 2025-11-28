@@ -18,19 +18,19 @@ public class MatchController {
         this.matchService = matchService;
     }
 
-    // Создать матч
+    // sozdaem match
     @PostMapping
     public Match createMatch(@RequestParam Long player01Id, @RequestParam Long player02Id) {
         return matchService.createMatch(player01Id, player02Id);
     }
 
-    // Получить матч по id
+    // poluchaem match po id
     @GetMapping("/{id}")
     public Optional<Match> getMatch(@PathVariable Long id) {
         return matchService.getMatch(id);
     }
 
-    // Игрок делает ход
+    // hod
     @PostMapping("/{matchId}/play")
     public void playTurn(@PathVariable Long matchId,
                          @RequestParam Long playerId,

@@ -20,13 +20,13 @@ public class LeaderboardController {
         this.leaderboardService = leaderboardService;
     }
 
-    // Получить топ 100 игроков
+    // poluchaem top igrokov
     @GetMapping("/top")
     public List<User> getTopPlayers() {
         return leaderboardService.getTopPlayers();
     }
 
-    // Получить место и данные конкретного игрока
+    // mesto i dannie igroka
     @GetMapping("/player/{userId}")
     public UserLeaderboardDto getPlayerPosition(@PathVariable Long userId) {
         return leaderboardService.getPlayerPosition(userId);

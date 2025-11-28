@@ -18,31 +18,31 @@ public class CardController {
         this.cardService = cardService;
     }
 
-    // Получить все карты
+    // poluchaaem karti
     @GetMapping
     public List<Cards> getAllCards() {
         return cardService.getAllCards();
     }
 
-    // Добавить новую карту
+    // dobavljaem karti
     @PostMapping
     public Cards addCard(@RequestBody Cards card) {
         return cardService.addCard(card);
     }
 
-    // Удалить карту по id
+
     @DeleteMapping("/{id}")
     public void deleteCard(@PathVariable Long id) {
         cardService.deleteCard(id);
     }
 
-    // Найти карты по имени
+    // nahodim karti po imeni
     @GetMapping("/name/{name}")
     public List<Cards> findByName(@PathVariable String name) {
         return cardService.findByName(name);
     }
 
-    // Найти карты по типу
+    // nahodim karti po tipu
     @GetMapping("/type/{type}")
     public List<Cards> findByType(@PathVariable String type) {
         return cardService.findByType(type);

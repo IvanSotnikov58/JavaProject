@@ -24,12 +24,12 @@ public class DeckService {
         this.cardRepository = cardRepository;
     }
 
-    // Получить все колоды игрока
+
     public List<Decks> getDecksByPlayer(Long playerId) {
         return deckRepository.findByPlayerId(playerId);
     }
 
-    // Создать новую колоду
+    // zdes poluchaem novuyu kolodu
     public Decks createDeck(Long playerId, List<Long> cardIds) {
         Optional<User> userOpt = userRepository.findById(playerId);
         if (userOpt.isEmpty()) return null; // или кинуть исключение
@@ -44,7 +44,7 @@ public class DeckService {
         return deckRepository.save(deck);
     }
 
-    // Удалить колоду
+
     public void deleteDeck(Long deckId) {
         deckRepository.deleteById(deckId);
     }
