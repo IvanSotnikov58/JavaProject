@@ -5,6 +5,8 @@ import com.example.hearthclone.model.*;
 import org.springframework.stereotype.Service;
 import com.example.hearthclone.model.Decks;
 
+import javax.smartcardio.Card;
+
 
 @Service
 public class BattleService {
@@ -36,7 +38,20 @@ public class BattleService {
     public Turn PlayTurn(Long matchId, Long playerid, Long targetId) {
         Match match = matchRepository.findById(matchId).orElseThrow(()->
                 new RuntimeException("Match ne naiden"));
-        return null;
+        //poluchaem Kartu
+        Card card=cardRepository.findById(cardId).orElseThrow().orElseThrow(()->
+                new RuntimeException("Karta Ne naidena"));
+        //damage ili effekti kakie to
+        User targetPlayer=(match.getPlayer01().getId().equals(playerid))? match.getPlayer02():match.getPlayer01();
+
+        targetPlayer.setName(targetPlayer.getHealth()-cards.getDamage());
+
+        //sohranjaem hod
+        Turn turn= new Turn();
+        turn.setMatch(matchId);
+        turn.setPlayer(playerid);
+        turn.setAction("Igrok ispolzoval kartu" + card.getName());
+
     }
 }
 
