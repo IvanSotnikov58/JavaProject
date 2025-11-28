@@ -40,4 +40,5 @@ public class CardService {
     public List<Cards> findByType(String type) {
         return cardRepository.findByType(type);
     }
+
 }
