@@ -18,20 +18,20 @@ public class DeckController {
         this.deckService = deckService;
     }
 
-    // Получить все колоды игрока
+
     @GetMapping("/player/{playerId}")
     public List<Decks> getDecks(@PathVariable Long playerId) {
         return deckService.getDecksByPlayer(playerId);
     }
 
-    // Создать новую колоду
+
     @PostMapping("/player/{playerId}")
     public Decks createDeck(@PathVariable Long playerId, @RequestBody DeckRequest request) {
         return deckService.createDeck(playerId, request.getCardIds());
     }
 
 
-    // Удалить колоду
+
     @DeleteMapping("/{deckId}")
     public void deleteDeck(@PathVariable Long deckId) {
         deckService.deleteDeck(deckId);
