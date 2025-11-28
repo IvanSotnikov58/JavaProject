@@ -31,7 +31,7 @@ public class MatchService {
         this.turnService = turnService;
     }
 
-    // Создать новый матч между двумя игроками
+    // sozdaem match
     public Match createMatch(Long player01Id, Long player02Id) {
         Optional<User> player01 = userRepository.findById(player01Id);
         Optional<User> player02 = userRepository.findById(player02Id);
@@ -41,7 +41,7 @@ public class MatchService {
         Match match = new Match(player01.get(), player02.get(), null, "ONGOING");
         match = matchRepository.save(match);
 
-        // Раздать колоды (пока просто берем первую колоду и перемешиваем)
+        // razdacha kolod
         dealCards(match, player01.get());
         dealCards(match, player02.get());
 
@@ -55,16 +55,16 @@ public class MatchService {
         List<Cards> cards = decks.get(0).getCards();
         Collections.shuffle(cards);
 
-        // Пока просто выводим в консоль или можно сохранить в отдельное поле match (например, map player->cards)
+        //Poka prosto vyvodim v konsol' ili mozhno sokhranit' v otdel'noye pole match (naprimer, map player->cards)
         System.out.println("Разданы карты для " + player.getName() + ": " + cards);
     }
 
-    // Игрок делает ход
+    // igrok delaet hod
     public void playTurn(Match match, User player, Cards card, String target, String result, int turnNumber) {
         turnService.playCard(match, player, card, target, result, turnNumber);
 
-        // Простейшая проверка окончания матча
-        if (turnNumber >= 10) { // допустим матч заканчивается после 10 ходов
+        // proverka okonchanija matcha
+        if (turnNumber >= 10) {
             match.setStatus("FINISHED");
             matchRepository.save(match);
         }
