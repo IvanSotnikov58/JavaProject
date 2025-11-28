@@ -29,6 +29,12 @@ public class LogEntry {
         this.timestamp = timestamp;
     }
 
+    public LogEntry(Long matchId, String player, String action) {
+        this.match=new Match();
+        this.description=action;
+        this.timestamp=null;
+    }
+
     public Long getId() {
         return id;
     }
