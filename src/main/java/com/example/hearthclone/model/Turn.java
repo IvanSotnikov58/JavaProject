@@ -9,11 +9,12 @@ public class Turn {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     @Column(name="turn_number")
     private int turnNumber;
 
     @ManyToOne
-    private Long player;
+    private User player;
 
     @ManyToOne
     private Cards cards;
@@ -25,19 +26,21 @@ public class Turn {
 
     @ManyToOne
     @JoinColumn(name="matches")
-    private Long match;
-    private Action action;
+    private Match match;
 
-public Turn(){}
+    private String action;
 
-    public Turn(int turnNumber, User player, Cards cards, String target, String result, LocalDateTime timestamp, Match match, Action action) {
+
+    public Turn(){}
+
+    public Turn(int turnNumber, User player, Cards cards, String target, String result, LocalDateTime timestamp, Match match, String action) {
         this.turnNumber = turnNumber;
-        this.player = player.getId();
+        this.player = player;
         this.cards = cards;
         this.target = target;
         this.result = result;
         this.timestamp = timestamp;
-        this.match = match.getId();
+        this.match = match;
         this.action= action;
     }
 
@@ -58,12 +61,10 @@ public Turn(){}
     }
 
     public Long getPlayer() {
-        return player;
+        return player.getId();
     }
 
-    public void setPlayer(Long player) {
-        this.player = player;
-    }
+    public void setPlayer(User player) { this.player = player; }
 
     public String getTarget() {
         return target;
@@ -97,18 +98,28 @@ public Turn(){}
         this.timestamp = timestamp;
     }
 
-    public Long getMatch() {
+    public Match getMatch() {
         return match;
     }
 
-    public void setMatch(Long match) {
-        this.match = match;
-    }
+    public void setMatch(Match match) { this.match = match; }
 
-    public Long setMatchId(Long matchId) {
+    public Match setMatchId(Long matchId) {
     return match;
     }
-    public void setAction(Action action){
+    public void setAction(String action){
     this.action=action;
+    }
+
+    public Cards getCards() {
+        return cards;
+    }
+
+    public void setCards(Cards cards) {
+        this.cards = cards;
+    }
+
+    public String getAction() {
+        return action;
     }
 }
