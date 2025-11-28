@@ -18,6 +18,7 @@ public class User {
     private int wins;
     @Column(name = "losses")
     private int losses;
+    private int health;
 
     protected User() {
     }
@@ -28,6 +29,7 @@ public class User {
         this.rating = rating;
         this.wins = 0;
         this.losses = 0;
+        this.health=100;
     }
 
 
@@ -80,8 +82,13 @@ public class User {
     }
 
 
-
+    public int getHealth() {
+        return health;
     }
+    public void setHealth(int health){
+        this.health=health;
+    }
+}
 
 
 
