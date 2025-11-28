@@ -6,7 +6,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class AppConfig {
-    // Включаем CORS, чтобi frontend (html + JS) мог обращаться к API
+    // Включаем CORS, чтобы фронтенд (HTML + JS) мог обращаться к API
     @Bean
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
