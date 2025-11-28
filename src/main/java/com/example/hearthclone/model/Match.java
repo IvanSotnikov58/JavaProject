@@ -31,6 +31,9 @@ public class Match {
         this.status = status;
     }
 
+    public Match(User player1, User player2) {
+    }
+
     public Long getId() {
         return id;
     }
@@ -64,5 +67,11 @@ public class Match {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public void setDeck1(Decks decks1) {
+    }
+
+    public void setDeck2(Decks decks2) {
     }
 }
