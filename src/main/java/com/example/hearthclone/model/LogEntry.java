@@ -38,6 +38,9 @@ public class LogEntry {
         this.timestamp=LocalDateTime.now();
     }
 
+    public LogEntry(Long matchId, String player, String action) {
+    }
+
     public Long getId() {
         return id;
     }
