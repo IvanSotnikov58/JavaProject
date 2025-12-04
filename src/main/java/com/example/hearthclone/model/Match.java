@@ -17,17 +17,24 @@ public class Match {
     @JoinColumn(name = "player02_id")
     private User player02;
 
-    // <- changed to wrapper Long
+    @ManyToOne
+    @JoinColumn(name = "winner_id")
     private User winner;
 
     private String status;
-    @OneToOne
-    private Decks decks1;
-    @OneToOne
-    private Decks decks2;
-    private int player01Health = 100;
-    private int player02Health = 100;
 
+    @OneToOne
+    @JoinColumn(name = "decks1_id")
+    private Decks decks1;
+
+    @OneToOne
+    @JoinColumn(name = "decks2_id")
+    private Decks decks2;
+    @Column(name = "player01_health")
+    private int player01Health = 100;
+
+    @Column(name = "player02_health")
+    private int player02Health = 100;
 
     protected Match() {
     }
