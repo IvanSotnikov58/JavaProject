@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Матч Hearthclone</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#121318;
+      --panel:#1f2430;
+      --muted:#9aa0ac;
+      --accent:#ffcc33;
+      --card:#232631;
+      --text:#eef1f6;
+    }
+    body{
+      margin:0;
+      font-family:system-ui,Segoe UI,Roboto,Arial;
+      background:var(--bg);
+      color:var(--text);padding:18px
+    }
+
+    header{
+      padding:18px 0;
+      text-align:center
+    }
+
+    h1{
+      margin:0;
+      font-size:28px
+    }
+
+    .menu-btn{
+      display:inline-block;
+      margin:12px 0;
+      padding:8px 16px;
+      background:var(--accent);
+      color:#111;
+      border-radius:6px;
+      text-decoration:none
+    }
+
+    .container{
+      max-width:980px;
+      margin:18px auto
+    }
+    .panel{
+      background:var(--panel);
+      border-radius:10px;
+      padding:14px;
+      margin-bottom:14px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.4)
+    }
+
+    label{
+      display:block;
+      margin-top:8px;
+      color:var(--muted);
+      font-size:14px
+    }
+    select,input{
+      width:100%;
+      padding:8px;
+      margin-top:6px;
+      border-radius:6px;
+      border:1px solid #2b3038;
+      background:transparent;
+      color:var(--text)
+    }
+
+    button{
+      padding:10px 12px;
+      border-radius:8px;
+      background:linear-gradient(#ffdb55,#ffcc33);
+      border:none;
+      color:#111;
+      font-weight:600;
+    }
+
+    .row{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap
+    }
+
+    .cols{
+      display:flex;
+      gap:12px
+    }
+
+    .col{
+      flex:1;
+      min-width:220px
+    }
+
+    .small{
+      color:var(--muted);
+      font-size:13px
+    }
+
+    .log{
+      max-height:300px;
+      overflow:auto;background:#0f1114;
+      padding:10px;border-radius:8px;
+      border:1px solid #222;
+      color:var(--muted)
+    }
+
+    .nav-user{
+      position:absolute;
+      right:18px;
+      top:18px;
+      color:var(--muted);
+      font-size:13px
+    }
+    .controls{display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px
+    }
+    .radio-group{
+      display:flex;
+      gap:12px;
+      margin-top:6px;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Матч Hearthclone</h1>
+  <a class="menu-btn" href="index.html">Меню</a>
+</header>
+
+<div class="nav-user" id="navUser"></div>
+
+<div class="container">
+  <div class="panel">
+    <h3 style="margin:0">Создать матч</h3>
+    <div class="cols" style="margin-top:10px">
+      <div class="col">
+        <label>Игрок 1 (ты)</label>
+        <input id="p1" disabled />
+      </div>
+      <div class="col">
+        <label>Игрок 2</label>
+        <div class="radio-group">
+          <label><input type="radio" name="p2type" value="id" checked> ID</label>
+          <label><input type="radio" name="p2type" value="name"> Ник</label>
+        </div>
+        <input id="p2id" placeholder="Введите ID игрока">
+        <input id="p2name" placeholder="Введите ник игрока" style="display:none">
+      </div>
+    </div>
+    <div class="controls">
+      <button id="createMatch">Создать матч</button>
+      <span id="created" class="small" style="align-self:center;margin-left:8px"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin:0">Играть</h3>
+    <div style="margin-top:10px" class="row">
+      <div style="flex:1">
+        <label>Match ID</label>
+        <input id="matchIdInput" />
+      </div>
+      <div style="width:160px;align-self:flex-end">
+        <button id="loadMatch">Загрузить матч</button>
+      </div>
+    </div>
+
+    <div id="matchArea" style="display:none;margin-top:12px">
+      <div class="row">
+        <div class="col"><b>Match id:</b> <span id="mid"></span></div>
+        <div class="col"><b>status:</b> <span id="mstatus"></span></div>
+      </div>
+
+      <div class="cols" style="margin-top:10px">
+        <div class="col">
+          <label>Кто ходит (playerId)</label>
+          <input id="playerId" />
+        </div>
+        <div class="col">
+          <label>Card ID</label>
+          <input id="cardId" />
+        </div>
+        <div class="col">
+          <label>Target</label>
+          <input id="target" />
+        </div>
+      </div>
+
+      <div class="cols" style="margin-top:8px">
+        <div style="flex:1">
+          <label>Результат (отладка)</label>
+          <input id="result" />
+        </div>
+        <div style="width:120px">
+          <label>Turn #</label>
+          <input id="turnNumber" type="number" value="1" />
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="playBtn">Сыграть карту</button>
+      </div>
+
+      <h4 style="margin-top:12px">Лог ходов</h4>
+      <div id="log" class="log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const nav = document.getElementById('navUser');
+    const id = localStorage.getItem('hc_userId');
+    const name = localStorage.getItem('hc_userName');
+    if(id && name){
+      nav.innerHTML = `Вы: ${escapeHtml(name)} (id:${escapeHtml(id)}) &nbsp; <button id="logoutSmall" style="margin-left:8px;padding:4px 8px;border-radius:6px;border:none;background:#333;color:#fff;cursor:pointer">Выйти</button>`;
+      document.getElementById('logoutSmall').addEventListener('click', ()=>{ localStorage.removeItem('hc_userId'); localStorage.removeItem('hc_userName'); location.reload(); });
+      document.getElementById('p1').value = id;
+    } else {
+      nav.textContent = 'Не вошёл';
+    }
+  })();
+
+  function escapeHtml(s){ if(!s && s!==0) return ''; return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  const p2typeRadios = document.getElementsByName('p2type');
+  const p2id = document.getElementById('p2id');
+  const p2name = document.getElementById('p2name');
+
+  p2typeRadios.forEach(radio => {
+    radio.addEventListener('change', ()=>{
+      if(radio.value === 'id' && radio.checked){
+        p2id.style.display = '';
+        p2name.style.display = 'none';
+      } else if(radio.value === 'name' && radio.checked){
+        p2id.style.display = 'none';
+        p2name.style.display = '';
+      }
+    });
+  });
+
+  document.getElementById('createMatch').addEventListener('click', async ()=>{
+    const p1 = document.getElementById('p1').value;
+    let p2;
+    if([...p2typeRadios].find(r=>r.checked).value === 'id'){
+      p2 = p2id.value.trim();
+      if(!p2) return alert('Введите ID второго игрока');
+    } else {
+      const name = p2name.value.trim();
+      if(!name) return alert('Введите ник второго игрока');
+      try{
+        const r = await fetch(`/users?name=${encodeURIComponent(name)}`);
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        const users = await r.json();
+        if(!Array.isArray(users) || users.length===0) return alert('Игрок не найден');
+        p2 = users[0].id;
+      }catch(e){ return alert('Ошибка поиска игрока: ' + e); }
+    }
+
+    try{
+      const r = await fetch(`/matches?player01Id=${p1}&player02Id=${p2}`, { method: 'POST' });
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const match = await r.json();
+      document.getElementById('created').textContent = 'Match id:' + match.id;
+      document.getElementById('matchIdInput').value = match.id;
+    }catch(e){
+      alert('Ошибка создания матча: ' + e);
+    }
+  });
+
+  document.getElementById('loadMatch').addEventListener('click', async ()=>{
+    const id = document.getElementById('matchIdInput').value;
+    if(!id) return alert('Введите match id');
+    try{
+      const r = await fetch(`/matches/${id}`);
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const match = await r.json();
+      const real = (match && match.id) ? match : (Array.isArray(match) ? match[0] : match);
+      document.getElementById('mid').textContent = real.id || '';
+      document.getElementById('mstatus').textContent = real.status || '';
+      document.getElementById('matchArea').style.display = 'block';
+      const stored = localStorage.getItem('hc_userId'); if(stored) document.getElementById('playerId').value = stored;
+      appendLog('Матч загружен: ' + JSON.stringify(real));
+    }catch(e){
+      alert('Ошибка загрузки матча: ' + e);
+    }
+  });
+
+  document.getElementById('playBtn').addEventListener('click', async ()=>{
+    const matchId = document.getElementById('mid').textContent || document.getElementById('matchIdInput').value;
+    const playerId = document.getElementById('playerId').value;
+    const cardId = document.getElementById('cardId').value || document.getElementById('cardId')?.value;
+    const target = document.getElementById('target').value || '';
+    const result = document.getElementById('result').value || '';
+    const turnNumber = document.getElementById('turnNumber').value || 1;
+
+    if(!matchId || !playerId || !cardId) return alert('matchId, playerId и cardId обязательны');
+
+    try{
+      const url = `/matches/${matchId}/play?playerId=${playerId}&cardId=${cardId}&target=${encodeURIComponent(target)}&result=${encodeURIComponent(result)}&turnNumber=${turnNumber}`;
+      const r = await fetch(url, { method:'POST' });
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      appendLog(`Ход отправлен: player=${playerId} card=${cardId} turn=${turnNumber}`);
+      document.getElementById('turnNumber').value = Number(turnNumber) + 1;
+      const mr = await fetch(`/matches/${matchId}`);
+      const match = await mr.json();
+      const real = (match && match.status) ? match : (Array.isArray(match) ? match[0] : match);
+      document.getElementById('mstatus').textContent = real.status || 'UNKNOWN';
+    }catch(e){
+      appendLog('Ошибка при отправке хода: ' + e);
+    }
+  });
+
+  function appendLog(s){
+    const log = document.getElementById('log');
+    const line = document.createElement('div');
+    line.textContent = (new Date()).toLocaleTimeString() + ' - ' + s;
+    log.prepend(line);
+  }
+</script>
+</body>
+</html>

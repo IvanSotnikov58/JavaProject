@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Deck Builder Hearthclone</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0f1114;
+      --panel:#171920;
+      --card:#1f2430;
+      --muted:#9aa0ac;
+      --accent:#ffcc33;
+      --text:#eef1f6;
+    }
+    body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);padding:18px}
+    header{text-align:center;padding:18px 0}
+    h1{margin:0;font-size:28px}
+    .menu-btn{display:inline-block;margin:12px 0;padding:8px 16px;background:var(--accent);color:#111;border-radius:6px;text-decoration:none}
+    .container{max-width:1100px;margin:18px auto}
+    .panel{background:var(--panel);border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 6px 18px rgba(0,0,0,0.4)}
+    .grid{display:flex;gap:12px;flex-wrap:wrap}
+    .cards{flex:2;min-width:320px}
+    .deck{flex:1;min-width:260px}
+    .card{background:var(--card);padding:10px;border-radius:8px;margin-bottom:8px;border:1px solid #2a2f3a}
+    .card h4{margin:0 0 6px 0;font-size:16px}
+    .small{color:var(--muted);font-size:13px}
+    button{padding:8px 10px;border-radius:8px;background:linear-gradient(#ffdb55,#ffcc33);border:none;color:#111;font-weight:600;cursor:pointer}
+    .disabled{opacity:0.6;pointer-events:none}
+    .msg{margin-top:8px;font-size:14px}
+    .nav-user{position:absolute;right:18px;top:18px;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Сборщик колод</h1>
+  <a class="menu-btn" href="index.html">Меню</a>
+</header>
+
+<div class="nav-user" id="navUser"></div>
+
+<div class="container">
+  <div class="panel">
+    <p class="small">Выбери пользователя в <a href="login.html" style="color:var(--accent)">Login</a>. Максимум 10 карт в колоде.</p>
+    <div class="grid">
+      <div class="cards panel" id="cardsPanel">
+        <h3 style="margin-top:0">Все карты</h3>
+        <div id="cardsList">Загрузка карт...</div>
+      </div>
+
+      <div class="deck panel">
+        <h3 style="margin-top:0">Твоя колода</h3>
+        <div id="deckList" style="min-height:120px" class="small">Пусто</div>
+        <p class="small">Выбрано: <span id="count">0</span> / <strong id="max">10</strong></p>
+        <div style="margin-top:10px">
+          <button id="saveDeck">Сохранить колоду</button>
+        </div>
+        <div id="msg" class="msg"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // nav user
+  (function(){
+    const nav = document.getElementById('navUser');
+    const id = localStorage.getItem('hc_userId');
+    const name = localStorage.getItem('hc_userName');
+    if(id && name){
+      nav.innerHTML = `Вы: ${escapeHtml(name)} (id:${escapeHtml(id)}) &nbsp; <button id="logoutSmall" style="margin-left:8px;padding:4px 8px;border-radius:6px;border:none;background:#333;color:#fff;cursor:pointer">Выйти</button>`;
+      document.getElementById('logoutSmall').addEventListener('click', ()=>{ localStorage.removeItem('hc_userId'); localStorage.removeItem('hc_userName'); location.reload(); });
+    } else { nav.textContent = 'Не вошёл'; }
+  })();
+
+  const MAX_DECK_SIZE = 10;
+  let allCards = [];
+  let selected = [];
+
+  function escapeHtml(s){ if(!s && s!==0) return ''; return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  async function loadCards(){
+    const el = document.getElementById('cardsList');
+    el.innerHTML = 'Загрузка...';
+    try{
+      const r = await fetch('/cards'); if(!r.ok) throw new Error('HTTP '+r.status);
+      allCards = await r.json();
+      renderCards();
+    }catch(e){
+      el.innerHTML = 'Ошибка загрузки карт';
+      console.error(e);
+    }
+  }
+
+  function renderCards(){
+    const el = document.getElementById('cardsList');
+    el.innerHTML = allCards.map(c => `
+      <div class="card">
+        <h4>${escapeHtml(c.name)} <span class="small">(${escapeHtml(c.type)})</span></h4>
+        <div class="small">cost ${c.cost} • dmg ${c.damage} • hp ${c.health}</div>
+        <div class="small" style="margin-top:6px">${escapeHtml(c.description || c.effectPayload || '')}</div>
+        <div style="margin-top:8px"><button onclick="toggleCard(${c.id})">${selected.includes(c.id)?'Удалить':'Добавить'}</button></div>
+      </div>`).join('');
+    renderDeck();
+  }
+
+  function renderDeck(){
+    const el = document.getElementById('deckList');
+    if(selected.length === 0){ el.innerHTML = '<div class="small">Колода пустая</div>'; }
+    else {
+      el.innerHTML = selected.map(id => {
+        const c = allCards.find(x=>x.id===id);
+        return `<div class="card"><h4 style="margin:0">${escapeHtml(c?.name||'??')}</h4><div class="small">id:${id}</div></div>`;
+      }).join('');
+    }
+    document.getElementById('count').textContent = selected.length;
+    document.getElementById('max').textContent = MAX_DECK_SIZE;
+    updateSaveButtonState();
+  }
+
+  function toggleCard(id){
+    if(selected.includes(id)) selected = selected.filter(x=>x!==id);
+    else {
+      if(selected.length >= MAX_DECK_SIZE){ alert('Максимум карт: ' + MAX_DECK_SIZE); return; }
+      selected.push(id);
+    }
+    renderCards();
+  }
+
+  function updateSaveButtonState(){
+    const btn = document.getElementById('saveDeck');
+    if(selected.length === 0 || selected.length > MAX_DECK_SIZE) btn.classList.add('disabled'); else btn.classList.remove('disabled');
+  }
+
+  document.getElementById('saveDeck').addEventListener('click', async ()=>{
+    const userId = localStorage.getItem('hc_userId');
+    const msg = document.getElementById('msg'); msg.textContent=''; msg.style.color='';
+    if(!userId){ msg.textContent='Выберите пользователя на странице Login'; msg.style.color='salmon'; return; }
+    if(selected.length === 0){ msg.textContent='Нельзя сохранять пустую колоду'; msg.style.color='salmon'; return; }
+    if(selected.length > MAX_DECK_SIZE){ msg.textContent=`Слишком много карт, максимум ${MAX_DECK_SIZE}`; msg.style.color='salmon'; return; }
+
+    try{
+      const r = await fetch(`/decks/player/${userId}`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ cardIds: selected })
+      });
+      if(r.ok){
+        const res = await r.json();
+        msg.style.color = 'lightgreen';
+        msg.textContent = 'Колода сохранена (id ' + (res.id || '?') + ')';
+      } else {
+        let text;
+        const ct = r.headers.get('content-type')||'';
+        if(ct.includes('application/json')) text = JSON.stringify(await r.json().catch(()=>null));
+        else text = await r.text().catch(()=>null);
+        msg.style.color='salmon';
+        msg.textContent = `Ошибка: HTTP ${r.status}` + (text ? ` - ${text}` : '');
+      }
+    }catch(e){
+      msg.style.color='salmon';
+      msg.textContent = 'Ошибка при сохранении: ' + (e.message||e);
+      console.error(e);
+    }
+  });
+
+  loadCards();
+  updateSaveButtonState();
+</script>
+</body>
+</html>
