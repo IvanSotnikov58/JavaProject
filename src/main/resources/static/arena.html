@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>Arena Hearthclone</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        :root{
+          --bg:#0b0d10;
+          --panel:#13161a;
+          --muted:#9aa0ac;
+          --accent:#ffcc33;
+          --accent-2:#ffdb55;
+          --card:#1b1f25;
+          --card-2:#192025;
+          --shadow: 0 10px 30px rgba(0,0,0,0.6);
+        }
+        html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:#e9eef2}
+        .wrap{max-width:1200px;margin:18px auto;padding:18px}
+        header{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:12px}
+        h1{margin:0;font-size:22px}
+        nav a{color:var(--muted);text-decoration:none;margin-left:10px}
+        .top-info{color:var(--muted);font-size:13px}
+
+        .board{display:flex;gap:18px}
+        .col{background:var(--panel);padding:14px;border-radius:10px;box-shadow:var(--shadow);flex:1;min-height:420px}
+        .col.small{flex:0 0 320px;max-width:320px}
+        .section-title{font-size:14px;color:var(--muted);margin-bottom:8px}
+
+        .deck-summary{background:linear-gradient(180deg,var(--card),var(--card-2));padding:10px;border-radius:8px}
+        .deck-count{font-weight:700;font-size:18px;color:var(--accent)}
+
+        .area{min-height:120px;border-radius:8px;padding:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03)}
+        .hand{display:flex;gap:8px;flex-wrap:wrap}
+        .card{
+          width:140px;
+          background:linear-gradient(180deg,#111217,#131821);
+          border-radius:8px;padding:8px;border:1px solid rgba(255,255,255,0.03);
+          box-shadow:0 6px 16px rgba(0,0,0,0.5);cursor:pointer;
+          display:flex;flex-direction:column;justify-content:space-between;
+        }
+        .card .name{font-weight:700;margin-bottom:6px}
+        .card .meta{font-size:13px;color:var(--muted)}
+        .card.playable{outline:2px solid rgba(255,204,51,0.18)}
+        .card.small{width:100%;display:flex;justify-content:space-between;padding:6px;font-size:14px}
+
+        .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+        button{background:linear-gradient(180deg,var(--accent),var(--accent-2));border:none;padding:10px 12px;border-radius:8px;font-weight:700;cursor:pointer;color:#111}
+        .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+        .log{max-height:420px;overflow:auto;background:#071017;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);font-size:13px;color:var(--muted)}
+
+        .small-note{font-size:13px;color:var(--muted);margin-top:8px}
+        .center{display:flex;justify-content:center;align-items:center;flex-direction:column;gap:12px}
+
+        @media (max-width:960px){
+          .board{flex-direction:column}
+          .col.small{max-width:none;flex:unset}
+          .card{width:120px}
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <div>
+            <h1>Арена Hearthclone</h1>
+            <div class="top-info">Игрок: <span id="playerName">—</span> · <span id="playerStats">рейтинг - · wins - / losses -</span></div>
+        </div>
+        <div>
+            <a class="btn-ghost" href="/index.html">Меню</a>
+            <a class="btn-ghost" href="/deckbuilder.html" style="margin-left:8px">Сборщик</a>
+        </div>
+    </header>
+
+    <div class="board">
+        <!-- LEFT: deck + stats -->
+        <div class="col small">
+            <div class="section-title">Колода (первый найденный deck)</div>
+            <div class="deck-summary">
+                <div>Карты в колоде: <span id="deckCount" class="deck-count">0</span></div>
+                <div class="small-note" id="deckSizeNote">Ожидается до 10 карт</div>
+                <div style="margin-top:10px">
+                    <button id="btnShuffle" class="">Shuffle</button>
+                    <button id="btnReset" class="btn-ghost" style="margin-left:8px">Reset</button>
+                </div>
+            </div>
+
+            <div style="margin-top:12px">
+                <div class="section-title">Состав колоды</div>
+                <div id="deckList" class="area" style="min-height:220px;overflow:auto"></div>
+            </div>
+
+            <div style="margin-top:12px">
+                <div class="section-title">Примечание</div>
+                <div class="small-note">Противник не реализован. Здесь, только твоя колода и локальные ходы.</div>
+            </div>
+        </div>
+
+        <!-- CENTER: battlefield -->
+        <div class="col">
+            <div class="section-title">Арена</div>
+
+            <div class="center">
+                <div style="width:100%;display:flex;justify-content:space-between;align-items:center">
+                    <div>Deck → Hand → Battlefield</div>
+                    <div>
+                        <button id="btnStart" class="">Start</button>
+                        <button id="btnDraw" class="btn-ghost" style="margin-left:8px">Draw</button>
+                        <button id="btnMulligan" class="btn-ghost" style="margin-left:8px">Mulligan</button>
+                    </div>
+                </div>
+
+                <div style="width:100%;margin-top:12px">
+                    <div class="section-title">Рука</div>
+                    <div id="handArea" class="area hand" style="min-height:140px"></div>
+                </div>
+
+                <div style="width:100%;margin-top:12px">
+                    <div class="section-title">Поле (твои сыгранные карты)</div>
+                    <div id="battleArea" class="area" style="min-height:140px;display:flex;gap:8px;flex-wrap:wrap"></div>
+                </div>
+
+                <div style="width:100%;margin-top:12px;display:flex;justify-content:space-between">
+                    <div class="small-note">Ходов сделано: <span id="turnCount">0</span></div>
+                    <div class="small-note">Карты в колоде: <span id="deckLeft">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: log -->
+        <div class="col small">
+            <div class="section-title">Лог</div>
+            <div id="log" class="log"></div>
+
+            <div style="margin-top:12px">
+                <div class="section-title">Контроль</div>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button id="btnExport" class="btn-ghost">Export (console)</button>
+                    <button id="btnClearLog" class="btn-ghost" style="margin-left:8px">Clear log</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /*
+      Arena behaviour:
+      - Load current user from localStorage (hc_userId/hc_userName)
+      - GET /decks/player/{userId} -> take first deck and its cards
+      - Support Start (init), Shuffle, Draw, Mulligan (reshuffle hand), Play card (click from hand to battlefield)
+      - All state is local (no server updates). Designed for quick testing.
+    */
+
+    function escapeHtml(s){ if(!s && s!==0) return ''; return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function now(){ return new Date().toLocaleTimeString(); }
+    function log(s){ const el=document.getElementById('log'); el.prepend(document.createElement('div')).textContent = now() + ' - ' + s; }
+
+    async function fetchJsonSafe(url){
+      try {
+        const r = await fetch(url);
+        if(!r.ok) return { ok:false, status:r.status, body: await r.text().catch(()=>null) };
+        const body = await r.json().catch(()=>null);
+        return { ok:true, body };
+      } catch(e){
+        return { ok:false, error:e };
+      }
+    }
+
+    // State
+    let user = { id: null, name: null };
+    let deck = [];        // array of card objects (remaining deck)
+    let initialDeck = []; // copy of original deck for reset
+    let hand = [];
+    let battlefield = [];
+    let turnCount = 0;
+
+    const MAX_DECK_SIZE = 10;
+    const START_HAND = 3;
+    const MAX_HAND = 6;
+
+    // UI refs
+    const deckListEl = document.getElementById('deckList');
+    const deckCountEl = document.getElementById('deckCount');
+    const deckLeftEl = document.getElementById('deckLeft');
+    const handArea = document.getElementById('handArea');
+    const battleArea = document.getElementById('battleArea');
+    const turnCountEl = document.getElementById('turnCount');
+
+    async function initPage(){
+      const id = localStorage.getItem('hc_userId');
+      const name = localStorage.getItem('hc_userName');
+      document.getElementById('playerName').textContent = name || '-';
+      document.getElementById('playerStats').textContent = (name?('id ' + id):'не в системе');
+
+      if(!id){
+        log('Нет текущего игрока: зайди в Login, чтобы выбрать пользователя.');
+        deckListEl.innerHTML = '<div class="small-note">Нет пользователя. Зайди в <a href="/login.html">Login</a>.</div>';
+        return;
+      }
+      user.id = id; user.name = name;
+
+      // Fetch decks
+      const res = await fetchJsonSafe(`/decks/player/${user.id}`);
+      if(!res.ok){
+        log('Ошибка получения колоды: ' + (res.status || res.error));
+        deckListEl.innerHTML = '<div class="small-note">Не удалось загрузить колоды.</div>';
+        return;
+      }
+
+      // res.body can be array or single deck
+      let body = res.body;
+      let chosen = null;
+      if(Array.isArray(body)){
+        chosen = body.length ? body[0] : null;
+      } else if(body && body.id){
+        chosen = body;
+      } else {
+        // maybe wrapped or unexpected
+        chosen = (body && body.decks && body.decks.length)? body.decks[0] : null;
+      }
+
+      if(!chosen){
+        deckListEl.innerHTML = '<div class="small-note">Колода не найдена. Создай в /deckbuilder.html</div>';
+        log('Нет колоды для игрока ' + user.name);
+        return;
+      }
+
+      // chosen.cards is expected list of objects with name, cost, id...
+      let cards = Array.isArray(chosen.cards) ? chosen.cards.slice() : [];
+      if(cards.length > MAX_DECK_SIZE){
+        log('Колода больше, чем ' + MAX_DECK_SIZE + ', берём первые ' + MAX_DECK_SIZE + ' карт.');
+        cards = cards.slice(0, MAX_DECK_SIZE);
+      }
+
+      initialDeck = cards.map(c => ({...c})); // shallow copy
+      resetState();
+
+      renderDeckList(initialDeck);
+      log('Колода загружена: ' + (chosen.id || '?') + ' - карты: ' + initialDeck.length);
+    }
+
+    function renderDeckList(list){
+      deckListEl.innerHTML = '';
+      if(!list || list.length===0){
+        deckListEl.innerHTML = '<div class="small-note">Пустая</div>'; return;
+      }
+      list.forEach(c => {
+        const d = document.createElement('div');
+        d.className = 'card small';
+        d.innerHTML = `<span>${escapeHtml(c.name||'unnamed')}</span><span class="meta">cost ${escapeHtml(c.cost||0)}</span>`;
+        deckListEl.appendChild(d);
+      });
+      deckCountEl.textContent = list.length;
+      deckLeftEl.textContent = deck.length;
+    }
+
+    function resetState(){
+      deck = initialDeck.map(c=>({...c}));
+      hand = [];
+      battlefield = [];
+      turnCount = 0;
+      updateUI();
+    }
+
+    function updateUI(){
+      // update deck counts
+      deckCountEl.textContent = initialDeck.length;
+      deckLeftEl.textContent = deck.length;
+      turnCountEl.textContent = turnCount;
+
+      // hand
+      handArea.innerHTML = hand.length ? '' : '<div class="small-note">Рука пуста</div>';
+      hand.forEach((c, idx) => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.dataset.index = idx;
+        el.innerHTML = `<div><div class="name">${escapeHtml(c.name||'unnamed')}</div><div class="meta">cost ${escapeHtml(c.cost||0)} · id:${escapeHtml(c.id||'')}</div></div>
+                        <div class="meta" style="text-align:right;font-size:12px">клик чтобы сыграть</div>`;
+        el.addEventListener('click', ()=>playCardFromHand(idx));
+        handArea.appendChild(el);
+      });
+
+      // battlefield
+      battleArea.innerHTML = battlefield.length ? '' : '<div class="small-note">Поле пусто</div>';
+      battlefield.forEach((c, idx) => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.style.width = '120px';
+        el.innerHTML = `<div class="name">${escapeHtml(c.name||'unnamed')}</div><div class="meta">cost ${escapeHtml(c.cost||0)}</div>`;
+        battleArea.appendChild(el);
+      });
+    }
+
+    // actions
+    function shuffleInPlace(arr){
+      for(let i = arr.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+
+    document.getElementById('btnShuffle').addEventListener('click', ()=>{
+      shuffleInPlace(deck);
+      updateUI();
+      log('Колода перемешана');
+    });
+
+    document.getElementById('btnReset').addEventListener('click', ()=>{
+      resetState();
+      renderDeckList(initialDeck);
+      log('Состояние сброшено');
+    });
+
+    document.getElementById('btnStart').addEventListener('click', ()=>{
+      resetState();
+      shuffleInPlace(deck);
+      // draw initial hand
+      for(let i=0;i<START_HAND;i++) drawCard(false);
+      updateUI();
+      log('Матч начат, рука из ' + START_HAND + ' карт');
+    });
+
+    document.getElementById('btnDraw').addEventListener('click', ()=> {
+      drawCard(true);
+    });
+
+    document.getElementById('btnMulligan').addEventListener('click', ()=>{
+      // put hand back, shuffle, draw same number
+      deck.push(...hand);
+      hand = [];
+      shuffleInPlace(deck);
+      for(let i=0;i<START_HAND;i++) drawCard(false);
+      updateUI();
+      log('Mulligan: новая рука');
+    });
+
+    document.getElementById('btnClearLog').addEventListener('click', ()=>{ document.getElementById('log').innerHTML=''; });
+    document.getElementById('btnExport').addEventListener('click', ()=>{ console.log({user, initialDeck, deck, hand, battlefield, turnCount}); alert('Статус выведен в консоль'); });
+
+    function drawCard(incTurn){
+      if(deck.length === 0){
+        log('Нельзя взять: колода пуста');
+        return;
+      }
+      if(hand.length >= MAX_HAND){
+        log('Нельзя взять: рука полна ('+MAX_HAND+')');
+        return;
+      }
+      const card = deck.shift();
+      hand.push(card);
+      if(incTurn) turnCount++;
+      updateUI();
+      log('Взята карта: ' + card.name);
+    }
+
+    function playCardFromHand(index){
+      if(index < 0 || index >= hand.length) return;
+      const card = hand.splice(index,1)[0];
+      battlefield.push(card);
+      turnCount++;
+      updateUI();
+      log('Сыграна карта: ' + card.name);
+    }
+
+    // keyboard: Space = draw
+    document.addEventListener('keydown', (e)=>{
+      if(e.code === 'Space') {
+        e.preventDefault();
+        drawCard(true);
+      }
+    });
+
+    // init
+    initPage();
+</script>
+</body>
+</html>
