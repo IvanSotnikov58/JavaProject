@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>Hearthclone Все карты</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, Segoe UI, Roboto, Arial;
+            background: #1c1f26;
+            color: #fff;
+            text-align: center;
+        }
+
+        header {
+            padding: 20px 0;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin: 0;
+        }
+
+        .menu-btn {
+            display: inline-block;
+            margin: 12px 0 20px 0;
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #ffcc33;
+            color: #111;
+            border-radius: 6px;
+            text-decoration: none;
+        }
+
+        .cards-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 16px;
+            padding: 20px;
+        }
+
+        .card {
+            background: #282c34;
+            border-radius: 8px;
+            padding: 12px;
+            width: 220px;
+            text-align: left;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+
+        .card h3 {
+            margin: 0 0 6px 0;
+            font-size: 18px;
+        }
+
+        .card p {
+            margin: 2px 0;
+            font-size: 14px;
+        }
+
+        .small {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Все карты Hearthclone</h1>
+    <a class="menu-btn" href="index.html">Меню</a>
+</header>
+
+<div class="cards-container" id="cardsContainer">
+    Загрузка карт...
+</div>
+
+<script>
+    async function loadCards() {
+        const container = document.getElementById('cardsContainer');
+        try {
+            const res = await fetch('/cards');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const cards = await res.json();
+            container.innerHTML = cards.map(c => `
+                <div class="card">
+                    <h3>${escapeHtml(c.name)} (${escapeHtml(c.type)})</h3>
+                    <p>Cost: ${c.cost}</p>
+                    <p>Damage: ${c.damage}</p>
+                    <p>Health: ${c.health}</p>
+                    <p class="small">${escapeHtml(c.description || c.effectPayload || '')}</p>
+                    <p class="small">ID: ${c.id}</p>
+                </div>
+            `).join('');
+        } catch(e) {
+            container.innerHTML = `<p>Ошибка загрузки карт: ${e}</p>`;
+            console.error(e);
+        }
+    }
+
+    function escapeHtml(s) {
+        if (!s && s !== 0) return '';
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    loadCards();
+</script>
+
+</body>
+</html>
