@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface TurnRepository extends JpaRepository<Turn, Long> {
-    List<Turn> findByMatchIdOrderByTimestampAsc(Long matchId);
+
+    List<Turn> findByMatch_IdOrderByTimestampAsc(Long matchId);
 
 }
