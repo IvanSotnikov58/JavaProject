@@ -1,5 +1,6 @@
 package com.example.hearthclone.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.*;
 
 @Entity
@@ -18,8 +19,13 @@ public class Match {
     private User player02;
 
     @ManyToOne
-    @JoinColumn(name = "winner_id")
+    @JoinColumn(name = "winner_id", nullable = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private User winner;
+
+//    @ManyToOne
+//    @JoinColumn(name = "winner_id")
+//    private User winner;
 
     private String status;
 
@@ -77,8 +83,8 @@ public class Match {
         return winner.getId();
     }
 
-    public void setWinner(User winner) {
-        this.winner = winner;
+    public User setWinner(User winner) {
+        return winner;
     }
 
     public String getStatus() {
