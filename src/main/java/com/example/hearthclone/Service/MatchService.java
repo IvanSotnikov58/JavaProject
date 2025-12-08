@@ -1,9 +1,7 @@
 package com.example.hearthclone.Service;
 
-import com.example.hearthclone.model.Cards;
-import com.example.hearthclone.model.Decks;
-import com.example.hearthclone.model.Match;
-import com.example.hearthclone.model.User;
+import com.example.hearthclone.Repository.TurnRepository;
+import com.example.hearthclone.model.*;
 import com.example.hearthclone.Repository.MatchRepository;
 import com.example.hearthclone.Repository.DeckRepository;
 import com.example.hearthclone.Repository.UserRepository;
@@ -20,23 +18,28 @@ public class MatchService {
     private final DeckRepository deckRepository;
     private final UserRepository userRepository;
     private final TurnService turnService;
+    private final TurnRepository turnRepository;
 
     public MatchService(MatchRepository matchRepository,
                         DeckRepository deckRepository,
                         UserRepository userRepository,
-                        TurnService turnService) {
+                        TurnService turnService,
+                        TurnRepository turnRepository) {
         this.matchRepository = matchRepository;
         this.deckRepository = deckRepository;
         this.userRepository = userRepository;
         this.turnService = turnService;
+        this.turnRepository = turnRepository;
     }
 
     // sozdaem match
-    public Match createMatch(Long player01Id, Long player02Id) {
+    public Optional<Object> createMatch(Long player01Id, Long player02Id) {
         Optional<User> player01 = userRepository.findById(player01Id);
         Optional<User> player02 = userRepository.findById(player02Id);
 
-        if (player01.isEmpty() || player02.isEmpty()) return null;
+        if (player01.isEmpty() || player02.isEmpty()) {
+            return Optional.empty();
+        }
 
         Match match = new Match(player01.get(), player02.get(), null, "ONGOING");
         match = matchRepository.save(match);
@@ -45,7 +48,7 @@ public class MatchService {
         dealCards(match, player01.get());
         dealCards(match, player02.get());
 
-        return match;
+        return Optional.of(match);
     }
 
     private void dealCards(Match match, User player) {
@@ -76,5 +79,15 @@ public class MatchService {
 
     public Cards getCardFromService(Long cardId) {
         return turnService.getCardById(cardId);
+    }
+
+    public List<Turn> getTurns(Long matchId) {
+        return turnRepository.findByMatch_IdOrderByTimestampAsc(matchId);
+    }
+
+    // Вариант 2: передаём Match
+    public List<Turn> getTurns(Match match) {
+        if (match == null) return Collections.emptyList();
+        return turnRepository.findByMatch_IdOrderByTimestampAsc(match.getId());
     }
 }
