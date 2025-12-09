@@ -36,6 +36,7 @@ public class Match {
     @OneToOne
     @JoinColumn(name = "decks2_id")
     private Decks decks2;
+
     @Column(name = "player01_health")
     private int player01Health = 100;
 

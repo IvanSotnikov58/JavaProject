@@ -2,162 +2,277 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <title>Login — Hearthclone</title>
+  <title>Login / Register Hearthclone</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body{font-family:system-ui;padding:20px;background:#fafafa}
-    .card{background:#fff;padding:12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.06);max-width:520px}
-    label{display:block;margin-top:8px}
-    select,input{width:100%;padding:8px;margin-top:6px}
-    button{margin-top:10px;padding:8px 12px}
-    .small{font-size:0.9rem;color:#666}
-    #msg{margin-top:8px}
+    :root{
+      --bg:#1c1f26;
+      --panel:#282c34;
+      --muted:#aaa;
+      --accent:#ffcc33;
+      --accent-dark:#e6b72a;
+      --danger:#ff6b6b;
+      --ok:#6ddc8b;
+    }
+    html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:#fff}
+    .wrap{max-width:920px;margin:36px auto;padding:20px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    header h1{margin:0;font-size:28px}
+    nav a{color:var(--muted);margin-left:12px;text-decoration:none;font-size:14px}
+    nav a:hover{color:#fff}
+
+    .panels{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+    .card{
+      background:var(--panel);
+      border-radius:10px;
+      padding:18px;
+      width:100%;
+      max-width:420px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+      text-align:left;
+    }
+
+    label{display:block;margin-top:10px;color:var(--muted);font-size:13px}
+    input[type="text"],input[type="password"]{
+      width:100%;padding:10px;border-radius:6px;border:none;margin-top:6px;background:#1b1d22;color:#fff;font-size:15px;
+    }
+
+    .row{display:flex;gap:10px;margin-top:12px}
+    button{
+      padding:10px 14px;border-radius:8px;border:none;font-weight:600;cursor:pointer;
+    }
+    .btn-primary{background:var(--accent);color:#111}
+    .btn-secondary{background:#3a3f46;color:#fff}
+    .btn-ghost{background:transparent;border:1px solid #3a3f46;color:var(--muted)}
+    .note{font-size:13px;color:var(--muted);margin-top:8px}
+    .msg{margin-top:10px;font-size:13px;white-space:pre-wrap}
+    .msg.error{color:var(--danger)}
+    .msg.ok{color:var(--ok)}
+
+    .footer-links{margin-top:14px;color:var(--muted);font-size:13px}
+    .sr-only{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
+
+    .menu-btn {
+            display: inline-block;
+            margin: 12px 0 20px 0;
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #ffcc33;
+            color: #111;
+            border-radius: 6px;
+            text-decoration: none;
+        }
   </style>
 </head>
 <body>
+<div class="wrap">
+  <header>
+    <h1>Hearthclone</h1>
 
-<header style="display:flex;align-items:center;gap:12px;padding:12px;background:#fff;margin-bottom:12px;border-bottom:1px solid #eee">
-  <h1 style="margin:0;font-size:1.1rem">Hearthclone</h1>
-  <nav style="margin-left:8px">
-    <a href="/index.html">Главная</a> |
-    <a href="/deckbuilder.html">Сборщик</a> |
-    <a href="/match.html">Матч</a> |
-    <a href="/login.html" id="nav-login-link">Логин</a>
-  </nav>
+  </header>
 
-  <div style="margin-left:auto;text-align:right">
-    <div id="nav-user" class="small" style="font-size:0.9rem;color:#333"></div>
-    <button id="nav-logout" style="display:none;margin-top:4px;padding:4px 8px">Выйти</button>
+  <div class="panels">
+    <!-- LOGIN -->
+    <div class="card" id="loginCard" aria-labelledby="loginTitle">
+      <h2 id="loginTitle">Вход</h2>
+      <label for="loginName">Имя пользователя</label>
+      <input id="loginName" type="text" placeholder="Введите имя" autocomplete="username" />
+
+      <label for="loginPass">Пароль</label>
+      <input id="loginPass" type="password" placeholder="Введите пароль" autocomplete="current-password" />
+
+      <div class="row">
+        <button id="btnDoLogin" class="btn-primary">Войти</button>
+        <button id="btnFillLast" class="btn-ghost" title="Заполнить данными из localStorage">Заполнить</button>
+      </div>
+
+      <div id="loginMsg" class="msg"></div>
+      <div class="note">Если у вас ещё нет аккаунта, создайте его в блоке справа.</div>
+    </div>
+
+    <!-- REGISTER -->
+    <div class="card" id="regCard" aria-labelledby="regTitle">
+      <h2 id="regTitle">Регистрация</h2>
+      <label for="regName">Имя пользователя</label>
+      <input id="regName" type="text" placeholder="Придумайте имя" autocomplete="username"/>
+
+      <label for="regPass">Пароль</label>
+      <input id="regPass" type="password" placeholder="Пароль" autocomplete="new-password"/>
+
+      <div class="row">
+        <button id="btnRegister" class="btn-secondary">Создать аккаунт и войти</button>
+      </div>
+
+      <div id="regMsg" class="msg"></div>
+      <div class="footer-links">При создании аккаунта вы сразу зайдёте в него!</div>
+      <!-- Кнопка "Вернуться в меню" -->
+      <a href="/index.html" class="menu-btn">Меню</a>
+    </div>
   </div>
-</header>
-
-<script>
-  // Показывать имя пользователя и кнопку logout во всех страницах
-  (function(){
-    const name = localStorage.getItem('hc_userName');
-    const id = localStorage.getItem('hc_userId');
-    const navUser = document.getElementById('nav-user');
-    const navLogout = document.getElementById('nav-logout');
-    const navLoginLink = document.getElementById('nav-login-link');
-
-    if(name && id){
-      navUser.textContent = 'Вы: ' + name + ' (id:' + id + ')';
-      navLogout.style.display = 'inline-block';
-      navLoginLink.style.display = 'none';
-    } else {
-      navUser.textContent = 'Не вошёл';
-      navLogout.style.display = 'none';
-      navLoginLink.style.display = 'inline';
-    }
-
-    navLogout?.addEventListener('click', () => {
-      localStorage.removeItem('hc_userId');
-      localStorage.removeItem('hc_userName');
-      location.reload();
-    });
-  })();
-
-  function escapeHtml(s){ if(!s && s!==0) return ''; return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-</script>
-
-<div class="card" style="margin-top:12px">
-  <h2>Войти / выбрать пользователя</h2>
-  <p class="small">Введи пароль — будет попытка вызвать <code>/auth/login</code>. Если сервер авторизации недоступен, используй кнопку «Быстрый выбор».</p>
-
-  <label for="userSelect">Пользователь:</label>
-  <select id="userSelect"></select>
-
-  <label for="password">Пароль:</label>
-  <input id="password" type="password" placeholder="Введите пароль (если есть)" />
-
-  <div style="display:flex;gap:8px;margin-top:10px">
-    <button id="btnLogin">Войти</button>
-    <button id="btnQuick">Быстрый выбор (без пароля)</button>
-  </div>
-
-  <p id="msg" class="small"></p>
+</div>
 </div>
 
 <script>
-  async function loadUsers() {
-    const sel = document.getElementById('userSelect');
-    sel.innerHTML = '<option>Загрузка...</option>';
-    try {
-      const r = await fetch('/users');
-      if(!r.ok) throw new Error('HTTP ' + r.status);
-      const users = await r.json();
-      sel.innerHTML = users.map(u => `<option value="${u.id}">${escapeHtml(u.name)} (id:${u.id})</option>`).join('');
-    } catch(e){
-      sel.innerHTML = '<option>Ошибка загрузки</option>';
-      document.getElementById('msg').textContent = 'Не удалось загрузить пользователей: ' + e;
-    }
+  /*
+    Поведение:
+    - Login: POST /auth/login { name, password }
+    - Register: пробуем POST /auth/register { name, password } -> если 404 пробуем POST /users { name, password, rating: 120 }
+    - При успешном ответе сохраняем в localStorage: hc_userId, hc_userName и редиректим на /index.html
+    - Показываем понятные сообщения
+  */
+
+  function setMsg(el, text, kind){
+    el.textContent = text || '';
+    el.classList.remove('error','ok');
+    if(kind==='error') el.classList.add('error');
+    if(kind==='ok') el.classList.add('ok');
   }
 
-  document.getElementById('btnLogin').addEventListener('click', async () => {
-    const sel = document.getElementById('userSelect');
-    const id = sel.value;
-    const password = document.getElementById('password').value || '';
-    const msg = document.getElementById('msg');
-    msg.textContent = '';
-    msg.style.color = '';
+  async function tryParseJsonSafe(response){
+    const ct = response.headers.get('content-type') || '';
+    if(ct.includes('application/json')) {
+      try { return await response.json(); } catch(e){ return null; }
+    }
+    // try text fallback
+    try { return await response.text(); } catch(e){ return null; }
+  }
 
-    if(!id){ msg.textContent = 'Выберите пользователя'; return; }
+  document.getElementById('btnDoLogin').addEventListener('click', async ()=>{
+    const name = document.getElementById('loginName').value.trim();
+    const password = document.getElementById('loginPass').value || '';
+    const msg = document.getElementById('loginMsg');
+    setMsg(msg, '', null);
 
-    // Формируем payload соответствующий AuthService (name + password)
-    const name = sel.options[sel.selectedIndex].text.split(' (')[0];
+    if(!name){ setMsg(msg,'Введите имя пользователя', 'error'); return; }
 
     try {
-      const r = await fetch('/auth/login', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ name: name, password: password })
+      const resp = await fetch('/auth/login', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name, password })
       });
 
-      if (r.status === 401) {
-        msg.style.color = 'red';
-        msg.textContent = 'Неверный пароль.';
+      if(resp.status === 401){
+        setMsg(msg, 'Неверный пароль.', 'error');
         return;
       }
 
-      if (!r.ok) {
-        // Сервер вернул ошибку отличную от 401 (например 404 если эндпоинта нет)
-        msg.style.color = 'orange';
-        msg.textContent = 'Сервер авторизации временно недоступен. Можешь использовать "Быстрый выбор".';
+      if(resp.status === 404){
+        // возможно нет /auth/login - сообщим пользователю
+        setMsg(msg, 'Эндпоинт /auth/login не найден. Проверь сервер.', 'error');
         return;
       }
 
-      // Успех
-      const user = await r.json();
-      localStorage.setItem('hc_userId', user.id ?? id);
-      localStorage.setItem('hc_userName', user.name ?? name);
-      msg.style.color = 'green';
-      msg.textContent = 'Успешный вход: ' + (user.name ?? name);
-      setTimeout(()=>location.href = '/index.html', 400);
+      if(!resp.ok){
+        const body = await tryParseJsonSafe(resp) || resp.statusText;
+        setMsg(msg, `Ошибка входа: ${resp.status} - ${body}`, 'error');
+        return;
+      }
 
-    } catch (err) {
-      // Сетевая ошибка
-      msg.style.color = 'orange';
-      msg.textContent = 'Невозможно связаться с сервером авторизации. Используйте кнопку "Быстрый выбор" для тестирования.';
+      // success
+      const body = await tryParseJsonSafe(resp);
+      // ожидаем, что сервер вернёт пользователя { id, name, ... } или аналог
+      const userId = (body && body.id) ? body.id : null;
+      const userName = (body && (body.name || body.username)) ? (body.name || body.username) : name;
+
+      if(userId) localStorage.setItem('hc_userId', userId);
+      localStorage.setItem('hc_userName', userName);
+
+      setMsg(msg, 'Успешный вход: ' + userName, 'ok');
+      setTimeout(()=>location.href='/index.html', 450);
+
+    } catch(err){
       console.error(err);
+      setMsg(document.getElementById('loginMsg'), 'Ошибка сети при попытке войти: ' + (err.message||err), 'error');
     }
   });
 
-  // Быстрый выбор — только по кнопке, без автоматического срабатывания
-  document.getElementById('btnQuick').addEventListener('click', () => {
-    const sel = document.getElementById('userSelect');
-    const id = sel.value;
-    if(!id) {
-      document.getElementById('msg').textContent = 'Выберите пользователя';
-      return;
+  // register flow: try /auth/register, fallback to /users
+  document.getElementById('btnRegister').addEventListener('click', async ()=>{
+    const name = document.getElementById('regName').value.trim();
+    const password = document.getElementById('regPass').value || '';
+    const msg = document.getElementById('regMsg');
+    setMsg(msg, '', null);
+
+    if(!name){ setMsg(msg,'Введите имя для регистрации', 'error'); return; }
+    if(password.length < 1){ setMsg(msg,'Введите пароль', 'error'); return; }
+
+    // payload - minimal. If сервер хочет rating, мы добавим fallback ниже.
+    const payload = { name, password };
+
+    // helper to handle a successful created user response
+    async function handleSuccessResponse(resp){
+      const body = await tryParseJsonSafe(resp);
+      const userId = (body && body.id) ? body.id : null;
+      const userName = (body && (body.name || body.username)) ? (body.name || body.username) : name;
+      if(userId) localStorage.setItem('hc_userId', userId);
+      localStorage.setItem('hc_userName', userName);
+      setMsg(msg, 'Аккаунт создан и вы вошли как: ' + userName, 'ok');
+      setTimeout(()=>location.href='/index.html', 600);
     }
-    const name = sel.options[sel.selectedIndex]?.text?.split(' (')[0] || id;
-    localStorage.setItem('hc_userId', id);
-    localStorage.setItem('hc_userName', name);
-    document.getElementById('msg').style.color = 'green';
-    document.getElementById('msg').textContent = 'Быстрый выбор: ' + name;
-    setTimeout(()=>location.href = '/index.html', 400);
+
+    try {
+      // 1) пробуем стандартный регистрационный эндпоинт
+      let resp = await fetch('/auth/register', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+
+      if(resp.status === 404){
+        // нет эндпоинта /auth/register - пробуем POST /users (fallback)
+        // У /users, вероятно, ожидаются поля name,password,rating - добавим rating по умолчанию
+        const fallbackPayload = { name, password, rating: 120 };
+        const resp2 = await fetch('/users', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(fallbackPayload)
+        });
+
+        if(!resp2.ok){
+          const body = await tryParseJsonSafe(resp2) || resp2.statusText;
+          setMsg(msg, `Ошибка при создании пользователя: ${resp2.status} - ${body}`, 'error');
+          return;
+        }
+
+        await handleSuccessResponse(resp2);
+        return;
+      }
+
+      // if /auth/register exists:
+      if(resp.status === 400){
+        const body = await tryParseJsonSafe(resp) || 'Bad request';
+        setMsg(msg, 'Ошибка регистрации: ' + (typeof body === 'string' ? body : JSON.stringify(body)), 'error');
+        return;
+      }
+      if(!resp.ok){
+        const body = await tryParseJsonSafe(resp) || resp.statusText;
+        setMsg(msg, 'Ошибка регистрации: ' + (typeof body === 'string' ? body : JSON.stringify(body)), 'error');
+        return;
+      }
+
+      // success
+      await handleSuccessResponse(resp);
+
+    } catch(err){
+      console.error(err);
+      setMsg(msg, 'Ошибка сети при регистрации: ' + (err.message||err), 'error');
+    }
   });
 
-  loadUsers();
+  // optional helper: fill from localStorage
+  document.getElementById('btnFillLast').addEventListener('click', ()=>{
+    const id = localStorage.getItem('hc_userId');
+    const name = localStorage.getItem('hc_userName');
+    if(name) document.getElementById('loginName').value = name;
+    if(id) setMsg(document.getElementById('loginMsg'), 'Заполнено из localStorage (id:' + id + ')', 'ok');
+  });
+
+  // on load: prefill loginName if stored
+  (function init(){
+    const storedName = localStorage.getItem('hc_userName');
+    if(storedName) document.getElementById('loginName').value = storedName;
+  })();
 </script>
 </body>
 </html>
