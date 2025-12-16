@@ -53,7 +53,15 @@ public class MatchController {
         User player = match.getPlayer01().getId().equals(playerId) ? match.getPlayer01() : match.getPlayer02();
         Cards card = matchService.getCardFromService(cardId);
 
-        matchService.playTurn(match, player, card, target, result, turnNumber);
+        matchService.playTurn(
+                matchId,
+                playerId,
+                "PLAY",       // action
+                cardId,
+                null,         // targetCardId, если пока не используешь
+                null          // targetPlayerId, если пока не используешь
+        );
+
     }
 
     @GetMapping("/state/{id}")
