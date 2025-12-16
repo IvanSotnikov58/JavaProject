@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8" />
-    <title>Arena Hearthclone</title>
+    <title>Arena Hearthclone (New)</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <style>
         :root{
@@ -75,12 +75,12 @@
     <div class="board">
         <!-- LEFT: deck + stats -->
         <div class="col small">
-            <div class="section-title">Колода (первый найденный deck)</div>
+            <div class="section-title">Колода</div>
             <div class="deck-summary">
                 <div>Карты в колоде: <span id="deckCount" class="deck-count">0</span></div>
                 <div class="small-note" id="deckSizeNote">Ожидается до 10 карт</div>
                 <div style="margin-top:10px">
-                    <button id="btnShuffle" class="">Shuffle</button>
+                    <button id="btnShuffle">Shuffle</button>
                     <button id="btnReset" class="btn-ghost" style="margin-left:8px">Reset</button>
                 </div>
             </div>
@@ -88,11 +88,6 @@
             <div style="margin-top:12px">
                 <div class="section-title">Состав колоды</div>
                 <div id="deckList" class="area" style="min-height:220px;overflow:auto"></div>
-            </div>
-
-            <div style="margin-top:12px">
-                <div class="section-title">Примечание</div>
-                <div class="small-note">Противник не реализован. Здесь, только твоя колода и локальные ходы.</div>
             </div>
         </div>
 
@@ -104,9 +99,7 @@
                 <div style="width:100%;display:flex;justify-content:space-between;align-items:center">
                     <div>Deck → Hand → Battlefield</div>
                     <div>
-                        <button id="btnStart" class="">Start</button>
-                        <button id="btnDraw" class="btn-ghost" style="margin-left:8px">Draw</button>
-                        <button id="btnMulligan" class="btn-ghost" style="margin-left:8px">Mulligan</button>
+                        <button id="btnStart">Start</button>
                     </div>
                 </div>
 
@@ -123,6 +116,7 @@
                 <div style="width:100%;margin-top:12px;display:flex;justify-content:space-between">
                     <div class="small-note">Ходов сделано: <span id="turnCount">0</span></div>
                     <div class="small-note">Карты в колоде: <span id="deckLeft">0</span></div>
+                    <div class="small-note">Мана: <span id="currentMana">0</span> / <span id="maxMana">0</span></div>
                 </div>
             </div>
         </div>
@@ -131,52 +125,30 @@
         <div class="col small">
             <div class="section-title">Лог</div>
             <div id="log" class="log"></div>
-
-            <div style="margin-top:12px">
-                <div class="section-title">Контроль</div>
-                <div style="display:flex;gap:8px;margin-top:8px">
-                    <button id="btnExport" class="btn-ghost">Export (console)</button>
-                    <button id="btnClearLog" class="btn-ghost" style="margin-left:8px">Clear log</button>
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
 <script>
-    /*
-      Arena behaviour:
-      - Load current user from localStorage (hc_userId/hc_userName)
-      - GET /decks/player/{userId} -> take first deck and its cards
-      - Support Start (init), Shuffle, Draw, Mulligan (reshuffle hand), Play card (click from hand to battlefield)
-      - All state is local (no server updates). Designed for quick testing.
-    */
-
-    function escapeHtml(s){ if(!s && s!==0) return ''; return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-    function now(){ return new Date().toLocaleTimeString(); }
-    function log(s){ const el=document.getElementById('log'); el.prepend(document.createElement('div')).textContent = now() + ' - ' + s; }
-
     async function fetchJsonSafe(url){
       try {
         const r = await fetch(url);
         if(!r.ok) return { ok:false, status:r.status, body: await r.text().catch(()=>null) };
         const body = await r.json().catch(()=>null);
         return { ok:true, body };
-      } catch(e){
-        return { ok:false, error:e };
-      }
+      } catch(e){ return { ok:false, error:e }; }
     }
 
-    // State
-    let user = { id: null, name: null };
-    let deck = [];        // array of card objects (remaining deck)
-    let initialDeck = []; // copy of original deck for reset
+    // state
+    let user = { id:null, name:null };
+    let matchId = null;
     let hand = [];
-    let battlefield = [];
+    let field = [];
+    let deckLeft = 0;
     let turnCount = 0;
+    let currentMana = 0;
+    let maxMana = 0;
 
-    const MAX_DECK_SIZE = 10;
-    const START_HAND = 3;
     const MAX_HAND = 6;
 
     // UI refs
@@ -186,192 +158,120 @@
     const handArea = document.getElementById('handArea');
     const battleArea = document.getElementById('battleArea');
     const turnCountEl = document.getElementById('turnCount');
+    const currentManaEl = document.getElementById('currentMana');
+    const maxManaEl = document.getElementById('maxMana');
+    const logEl = document.getElementById('log');
+
+    function log(msg){ const div=document.createElement('div'); div.textContent = new Date().toLocaleTimeString() + ' - ' + msg; logEl.prepend(div); }
 
     async function initPage(){
-      const id = localStorage.getItem('hc_userId');
-      const name = localStorage.getItem('hc_userName');
-      document.getElementById('playerName').textContent = name || '-';
-      document.getElementById('playerStats').textContent = (name?('id ' + id):'не в системе');
+      user.id = localStorage.getItem('hc_userId');
+      user.name = localStorage.getItem('hc_userName');
+      document.getElementById('playerName').textContent = user.name||'-';
+      document.getElementById('playerStats').textContent = user.id ? 'id '+user.id:'не в системе';
 
-      if(!id){
-        log('Нет текущего игрока: зайди в Login, чтобы выбрать пользователя.');
-        deckListEl.innerHTML = '<div class="small-note">Нет пользователя. Зайди в <a href="/login.html">Login</a>.</div>';
-        return;
+      if(!user.id){
+        log('Нет игрока'); return;
       }
-      user.id = id; user.name = name;
 
-      // Fetch decks
+      // fetch decks
       const res = await fetchJsonSafe(`/decks/player/${user.id}`);
-      if(!res.ok){
-        log('Ошибка получения колоды: ' + (res.status || res.error));
-        deckListEl.innerHTML = '<div class="small-note">Не удалось загрузить колоды.</div>';
-        return;
+      if(!res.ok){ log('Ошибка загрузки колоды'); return; }
+let chosenDeck;
+if(Array.isArray(res.body) && res.body.length>0){
+    chosenDeck = res.body[res.body.length-1]; // берём последнюю созданную колоду
+} else if(res.body && res.body.id){
+    chosenDeck = res.body;
+} else if(res.body && res.body.decks && Array.isArray(res.body.decks) && res.body.decks.length>0){
+    chosenDeck = res.body.decks[res.body.decks.length-1];
+} else {
+    log('Колода пуста');
+    return;
+}
+renderDeckList(chosenDeck.cards || chosenDeck.cardList || chosenDeck.cardsList || []);
+
+
+      // create match
+      const matchRes = await fetchJsonSafe(`/matches/create?player01=${user.id}&player02=${user.id}`);
+      if(matchRes.ok && matchRes.body && matchRes.body.id){
+        matchId = matchRes.body.id;
+        log('Матч создан: ' + matchId);
+        await refreshMatchState();
       }
-
-      // res.body can be array or single deck
-      let body = res.body;
-      let chosen = null;
-      if(Array.isArray(body)){
-        chosen = body.length ? body[0] : null;
-      } else if(body && body.id){
-        chosen = body;
-      } else {
-        // maybe wrapped or unexpected
-        chosen = (body && body.decks && body.decks.length)? body.decks[0] : null;
-      }
-
-      if(!chosen){
-        deckListEl.innerHTML = '<div class="small-note">Колода не найдена. Создай в /deckbuilder.html</div>';
-        log('Нет колоды для игрока ' + user.name);
-        return;
-      }
-
-      // chosen.cards is expected list of objects with name, cost, id...
-      let cards = Array.isArray(chosen.cards) ? chosen.cards.slice() : [];
-      if(cards.length > MAX_DECK_SIZE){
-        log('Колода больше, чем ' + MAX_DECK_SIZE + ', берём первые ' + MAX_DECK_SIZE + ' карт.');
-        cards = cards.slice(0, MAX_DECK_SIZE);
-      }
-
-      initialDeck = cards.map(c => ({...c})); // shallow copy
-      resetState();
-
-      renderDeckList(initialDeck);
-      log('Колода загружена: ' + (chosen.id || '?') + ' - карты: ' + initialDeck.length);
     }
 
-    function renderDeckList(list){
+    function renderDeckList(cards){
       deckListEl.innerHTML = '';
-      if(!list || list.length===0){
-        deckListEl.innerHTML = '<div class="small-note">Пустая</div>'; return;
-      }
-      list.forEach(c => {
-        const d = document.createElement('div');
-        d.className = 'card small';
-        d.innerHTML = `<span>${escapeHtml(c.name||'unnamed')}</span><span class="meta">cost ${escapeHtml(c.cost||0)}</span>`;
+      cards.forEach(c=>{
+        const d=document.createElement('div');
+        d.className='card small';
+        d.innerHTML=`<span>${c.name}</span><span class="meta">cost ${c.cost}</span>`;
         deckListEl.appendChild(d);
       });
-      deckCountEl.textContent = list.length;
-      deckLeftEl.textContent = deck.length;
+      deckCountEl.textContent = cards.length;
     }
 
-    function resetState(){
-      deck = initialDeck.map(c=>({...c}));
-      hand = [];
-      battlefield = [];
-      turnCount = 0;
+    async function refreshMatchState(){
+      if(!matchId) return;
+      const res = await fetchJsonSafe(`/matches/${matchId}`);
+      if(!res.ok || !res.body) return;
+      const match = res.body;
+      turnCount = match.turnCounter||0;
+      const handRes = await fetchJsonSafe(`/matches/${matchId}/hand/${user.id}`);
+      hand = handRes.ok ? handRes.body : [];
+      const fieldRes = await fetchJsonSafe(`/matches/${matchId}/field/${user.id}`);
+      field = fieldRes.ok ? fieldRes.body : [];
+      deckLeft = handRes.ok && handRes.body? match.player01DeckCount : 0;
+      currentMana = matchRes.body ? matchRes.body.currentMana || 0 : 0;
+      maxMana = matchRes.body ? matchRes.body.maxMana || 0 : 0;
       updateUI();
     }
 
     function updateUI(){
-      // update deck counts
-      deckCountEl.textContent = initialDeck.length;
-      deckLeftEl.textContent = deck.length;
       turnCountEl.textContent = turnCount;
+      deckLeftEl.textContent = deckLeft;
+      currentManaEl.textContent = currentMana;
+      maxManaEl.textContent = maxMana;
 
       // hand
       handArea.innerHTML = hand.length ? '' : '<div class="small-note">Рука пуста</div>';
-      hand.forEach((c, idx) => {
+      hand.forEach((c,idx)=>{
         const el = document.createElement('div');
-        el.className = 'card';
-        el.dataset.index = idx;
-        el.innerHTML = `<div><div class="name">${escapeHtml(c.name||'unnamed')}</div><div class="meta">cost ${escapeHtml(c.cost||0)} · id:${escapeHtml(c.id||'')}</div></div>
-                        <div class="meta" style="text-align:right;font-size:12px">клик чтобы сыграть</div>`;
-        el.addEventListener('click', ()=>playCardFromHand(idx));
+        el.className='card';
+        el.dataset.index=idx;
+        el.innerHTML=`<div><div class="name">${c.name}</div><div class="meta">cost ${c.cost} · id:${c.id}</div></div><div class="meta" style="text-align:right;font-size:12px">клик чтобы сыграть</div>`;
+        el.addEventListener('click',()=>playCard(idx));
         handArea.appendChild(el);
       });
 
-      // battlefield
-      battleArea.innerHTML = battlefield.length ? '' : '<div class="small-note">Поле пусто</div>';
-      battlefield.forEach((c, idx) => {
+      // field
+      battleArea.innerHTML = field.length ? '' : '<div class="small-note">Поле пусто</div>';
+      field.forEach(c=>{
         const el = document.createElement('div');
-        el.className = 'card';
-        el.style.width = '120px';
-        el.innerHTML = `<div class="name">${escapeHtml(c.name||'unnamed')}</div><div class="meta">cost ${escapeHtml(c.cost||0)}</div>`;
+        el.className='card';
+        el.style.width='120px';
+        el.innerHTML=`<div class="name">${c.name}</div><div class="meta">HP:${c.health} DMG:${c.damage} ${c.taunt?'TAUNT':''}</div>`;
         battleArea.appendChild(el);
       });
     }
 
-    // actions
-    function shuffleInPlace(arr){
-      for(let i = arr.length-1;i>0;i--){
-        const j = Math.floor(Math.random()*(i+1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
+    async function playCard(index){
+      if(index<0 || index>=hand.length || !matchId) return;
+      const card = hand[index];
+      const res = await fetchJsonSafe(`/matches/${matchId}/play?playerId=${user.id}&cardId=${card.id}&action=PLAY`);
+      if(res.ok) {
+        log('Сыграна карта: ' + card.name);
+        await refreshMatchState();
+      } else {
+        log('Не удалось сыграть карту: ' + (res.status||res.error));
       }
     }
 
-    document.getElementById('btnShuffle').addEventListener('click', ()=>{
-      shuffleInPlace(deck);
-      updateUI();
-      log('Колода перемешана');
+    document.getElementById('btnStart').addEventListener('click', async ()=>{
+      log('Матч старт');
+      await refreshMatchState();
     });
 
-    document.getElementById('btnReset').addEventListener('click', ()=>{
-      resetState();
-      renderDeckList(initialDeck);
-      log('Состояние сброшено');
-    });
-
-    document.getElementById('btnStart').addEventListener('click', ()=>{
-      resetState();
-      shuffleInPlace(deck);
-      // draw initial hand
-      for(let i=0;i<START_HAND;i++) drawCard(false);
-      updateUI();
-      log('Матч начат, рука из ' + START_HAND + ' карт');
-    });
-
-    document.getElementById('btnDraw').addEventListener('click', ()=> {
-      drawCard(true);
-    });
-
-    document.getElementById('btnMulligan').addEventListener('click', ()=>{
-      // put hand back, shuffle, draw same number
-      deck.push(...hand);
-      hand = [];
-      shuffleInPlace(deck);
-      for(let i=0;i<START_HAND;i++) drawCard(false);
-      updateUI();
-      log('Mulligan: новая рука');
-    });
-
-    document.getElementById('btnClearLog').addEventListener('click', ()=>{ document.getElementById('log').innerHTML=''; });
-    document.getElementById('btnExport').addEventListener('click', ()=>{ console.log({user, initialDeck, deck, hand, battlefield, turnCount}); alert('Статус выведен в консоль'); });
-
-    function drawCard(incTurn){
-      if(deck.length === 0){
-        log('Нельзя взять: колода пуста');
-        return;
-      }
-      if(hand.length >= MAX_HAND){
-        log('Нельзя взять: рука полна ('+MAX_HAND+')');
-        return;
-      }
-      const card = deck.shift();
-      hand.push(card);
-      if(incTurn) turnCount++;
-      updateUI();
-      log('Взята карта: ' + card.name);
-    }
-
-    function playCardFromHand(index){
-      if(index < 0 || index >= hand.length) return;
-      const card = hand.splice(index,1)[0];
-      battlefield.push(card);
-      turnCount++;
-      updateUI();
-      log('Сыграна карта: ' + card.name);
-    }
-
-    // keyboard: Space = draw
-    document.addEventListener('keydown', (e)=>{
-      if(e.code === 'Space') {
-        e.preventDefault();
-        drawCard(true);
-      }
-    });
-
-    // init
     initPage();
 </script>
 </body>

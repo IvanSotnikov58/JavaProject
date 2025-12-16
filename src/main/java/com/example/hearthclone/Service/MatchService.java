@@ -27,6 +27,12 @@ public class MatchService {
     private final Map<Long, Long> currentPlayer = new ConcurrentHashMap<>(); // matchId -> playerId
     private final Map<Long, Integer> turnCounter = new ConcurrentHashMap<>(); // matchId -> number
 
+    // Мана: разделяем на player01 / player02 по matchId
+    private final Map<Long, Integer> maxManaP1 = new ConcurrentHashMap<>();
+    private final Map<Long, Integer> currentManaP1 = new ConcurrentHashMap<>();
+    private final Map<Long, Integer> maxManaP2 = new ConcurrentHashMap<>();
+    private final Map<Long, Integer> currentManaP2 = new ConcurrentHashMap<>();
+
     private final Random rnd = new Random();
 
     public MatchService(MatchRepository matchRepository,
@@ -41,11 +47,16 @@ public class MatchService {
         this.cardRepository = cardRepository;
     }
 
-    // Вспомогательный класс: карта на поле с текущим здоровьем
+    // Вспомогательный класс: карта на поле с текущим здоровьем и эффектами
     private static class InPlayCard {
         final String instanceId; // уникальный для этого экземпляра карты
         final Cards base;
         int currentHealth;
+
+        // эффекты/статусы
+        int bonusDamage = 0;   // временный бонус урона
+        boolean taunt = false; // приманка
+        int invulTurns = 0;    // количество атак, которые игнорируются
 
         InPlayCard(Cards base) {
             this.instanceId = UUID.randomUUID().toString();
@@ -54,6 +65,7 @@ public class MatchService {
         }
     }
 
+    // Утилита получение карты по id
     public Cards getCardFromService(Long cardId) {
         return cardRepository.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Карта не найдена"));
@@ -75,6 +87,13 @@ public class MatchService {
 
         initPlayerState(match.getId(), p1.getId(), true);
         initPlayerState(match.getId(), p2.getId(), false);
+
+        // Инициализируем ману:
+        // теперь оба стартуют с 1/1
+        maxManaP1.put(match.getId(), 1);
+        currentManaP1.put(match.getId(), 1);
+        maxManaP2.put(match.getId(), 1);
+        currentManaP2.put(match.getId(), 1);
 
         currentPlayer.put(match.getId(), p1.getId());
         turnCounter.put(match.getId(), 1);
@@ -106,7 +125,54 @@ public class MatchService {
         }
     }
 
-    // ================== Основная логика хода ==================
+    // ================== Управление маной ==================
+    /**
+     * На начало хода:
+     * - увеличиваем max mana на 1 (до 10)
+     * - добавляем +1 к current mana, но не выше max
+     */
+    private void startTurnFor(Long matchId, boolean isP1) {
+        if (isP1) {
+            int oldMax = maxManaP1.getOrDefault(matchId, 0);
+            int newMax = Math.min(10, oldMax + 1);
+            maxManaP1.put(matchId, newMax);
+
+            int oldCur = currentManaP1.getOrDefault(matchId, 0);
+            int newCur = Math.min(newMax, oldCur + 1);
+            currentManaP1.put(matchId, newCur);
+        } else {
+            int oldMax = maxManaP2.getOrDefault(matchId, 0);
+            int newMax = Math.min(10, oldMax + 1);
+            maxManaP2.put(matchId, newMax);
+
+            int oldCur = currentManaP2.getOrDefault(matchId, 0);
+            int newCur = Math.min(newMax, oldCur + 1);
+            currentManaP2.put(matchId, newCur);
+        }
+    }
+
+    // Возвращает текущее количество маны игрока в матче
+    public int getCurrentMana(Long matchId, Long playerId) {
+        Match match = matchRepository.findById(matchId).orElse(null);
+        if (match == null) return 0;
+        boolean isP1 = match.getPlayer01().getId().equals(playerId);
+        return isP1 ? currentManaP1.getOrDefault(matchId, 0) : currentManaP2.getOrDefault(matchId, 0);
+    }
+
+    // Возвращает max маны игрока в матче
+    public int getMaxMana(Long matchId, Long playerId) {
+        Match match = matchRepository.findById(matchId).orElse(null);
+        if (match == null) return 0;
+        boolean isP1 = match.getPlayer01().getId().equals(playerId);
+        return isP1 ? maxManaP1.getOrDefault(matchId, 0) : maxManaP2.getOrDefault(matchId, 0);
+    }
+
+    // ================== Основная логика хода (PLAY с эффектами и маной) ==================
+    /**
+     * action: пока поддерживается только "PLAY" — положить карту и сразу применить её эффект/атаку.
+     * cardId — id карты в руке.
+     * targetCardId/targetPlayerId игнорируются в этой реализации (сервер сам выбирает цель).
+     */
     public Turn playTurn(Long matchId, Long playerId, String action, Long cardId, Long targetCardId, Long targetPlayerId) {
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Матч не найден"));
@@ -126,44 +192,118 @@ public class MatchService {
 
         if (!"PLAY".equalsIgnoreCase(action)) throw new RuntimeException("Поддерживается только действие PLAY");
 
-        Cards cardToPlay = hand.stream()
-                .filter(c -> c.getId().equals(cardId))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Карта не найдена в руке"));
+        // 0) Проверяем ману
+        int cost;
+        Cards peek = hand == null ? null : hand.stream().filter(c -> c.getId().equals(cardId)).findFirst().orElse(null);
+        if (peek == null) throw new RuntimeException("Карта не найдена в руке");
+        cost = peek.getCost();
+        int available = isP1 ? currentManaP1.getOrDefault(matchId, 0) : currentManaP2.getOrDefault(matchId, 0);
+        if (available < cost) {
+            throw new RuntimeException("Недостаточно маны: нужно " + cost + ", есть " + available);
+        }
 
+        // 1) Берём карту из руки (карта уже найдена в peek)
+        Cards cardToPlay = peek;
+
+        // Снимаем ману
+        if (isP1) {
+            currentManaP1.put(matchId, available - cost);
+        } else {
+            currentManaP2.put(matchId, available - cost);
+        }
+
+        // 2) Создаём инстанс на поле и применяем эффекты, если есть
         InPlayCard myCardInstance = new InPlayCard(cardToPlay);
+
+        // разбор эффектов (effectKey / effectPayload). допускаем null и "none"
+        String key = cardToPlay.getEffectKey();
+        String payload = cardToPlay.getEffectPayload();
+
+        if (key != null && !"none".equalsIgnoreCase(key)) {
+            switch (key) {
+                case "INVULN": // payload = число атак, обычно "1"
+                    try {
+                        myCardInstance.invulTurns = Math.max(1, Integer.parseInt(payload));
+                    } catch (Exception e) {
+                        myCardInstance.invulTurns = 1;
+                    }
+                    break;
+                case "BUFF_ALL_DAMAGE": // payload = число (например "1")
+                    int buff = 0;
+                    try {
+                        buff = Integer.parseInt(payload);
+                    } catch (Exception ignored) {}
+                    // применяем к уже существующим картам на поле (включая эту карту после добавления)
+                    List<InPlayCard> targetField = myField != null ? myField : new ArrayList<>();
+                    for (InPlayCard ipc : targetField) {
+                        ipc.bonusDamage += buff;
+                    }
+                    // также добавим бафф к этой карте после добавления
+                    myCardInstance.bonusDamage += buff;
+                    break;
+                case "TAUNT":
+                    myCardInstance.taunt = true;
+                    break;
+                default:
+                    // неизвестный эффект — игнорируем (не будем кидать ошибку)
+                    break;
+            }
+        }
+
+        // ложим на поле и убираем из руки
+        if (myField == null) myField = new ArrayList<>();
         myField.add(myCardInstance);
+        if (isP1) fieldP1.put(matchId, myField); else fieldP2.put(matchId, myField);
         hand.remove(cardToPlay);
 
         String resultDesc;
 
+        // 3) Выбор цели: если на поле противника есть таунт — выбираем из них, иначе случайная карта
+        InPlayCard chosenTarget = null;
         if (oppField != null && !oppField.isEmpty()) {
-            int idx = rnd.nextInt(oppField.size());
-            InPlayCard target = oppField.get(idx);
+            // сначала ищем все taunt
+            List<InPlayCard> taunts = new ArrayList<>();
+            for (InPlayCard ipc : oppField) if (ipc.taunt) taunts.add(ipc);
 
-            int dmg = myCardInstance.base.getDamage();
-            int dmgBack = target.base.getDamage();
+            if (!taunts.isEmpty()) {
+                chosenTarget = taunts.get(rnd.nextInt(taunts.size()));
+            } else {
+                chosenTarget = oppField.get(rnd.nextInt(oppField.size()));
+            }
+        }
 
-            target.currentHealth -= dmg;
-            myCardInstance.currentHealth -= dmgBack;
+        // 4) Выполняем атаку
+        if (chosenTarget != null) {
+            // атакуем карту противника
+            int dmg = myCardInstance.base.getDamage() + myCardInstance.bonusDamage;
+            int dmgBack = chosenTarget.base.getDamage() + chosenTarget.bonusDamage;
 
-            resultDesc = String.format("%s: карта %s (HP:%d) ударила %s: карту %s (HP:%d -> %d); ответный урон %d, HP атакующей -> %d",
-                    attacker.getName(),
-                    myCardInstance.base.getName(),
-                    myCardInstance.base.getHealth(),
-                    defender.getName(),
-                    target.base.getName(),
-                    target.base.getHealth(),
-                    Math.max(0, target.currentHealth),
-                    dmgBack,
-                    Math.max(0, myCardInstance.currentHealth)
-            );
+            // Если цель имеет неуязвимость — она не получает урон, но даёт ответный урон
+            if (chosenTarget.invulTurns > 0) {
+                chosenTarget.invulTurns = Math.max(0, chosenTarget.invulTurns - 1);
+                // атакующая карта получает ответный урон, цель остаётся жива
+                myCardInstance.currentHealth -= dmgBack;
+                resultDesc = String.format("%s: карта %s ударила %s: карту %s, но та была неуязвима (защитилось %d), атакующая получила ответный урон %d (HP -> %d)",
+                        attacker.getName(), myCardInstance.base.getName(),
+                        defender.getName(), chosenTarget.base.getName(),
+                        chosenTarget.invulTurns, dmgBack, Math.max(0, myCardInstance.currentHealth));
+            } else {
+                // оба получают урон друг от друга
+                chosenTarget.currentHealth -= dmg;
+                myCardInstance.currentHealth -= dmgBack;
+                resultDesc = String.format("%s: карта %s нанесла %d урона карте %s (HP -> %d); ответный урон %d, HP атакующей -> %d",
+                        attacker.getName(), myCardInstance.base.getName(), dmg,
+                        defender.getName(), Math.max(0, chosenTarget.currentHealth),
+                        dmgBack, Math.max(0, myCardInstance.currentHealth));
+            }
 
-            if (target.currentHealth <= 0) oppField.remove(target);
-            if (myCardInstance.currentHealth <= 0) myField.remove(myCardInstance);
+            // удаляем мёртвые карты с поля
+            if (chosenTarget.currentHealth <= 0 && oppField != null) oppField.remove(chosenTarget);
+            if (myCardInstance.currentHealth <= 0 && myField != null) myField.remove(myCardInstance);
 
         } else {
-            int dmg = myCardInstance.base.getDamage();
+            // атакуем игрока напрямую
+            int dmg = myCardInstance.base.getDamage() + myCardInstance.bonusDamage;
             if (match.getPlayer01().getId().equals(defender.getId())) {
                 match.setPlayerHealth(match.getPlayer01(), match.getPlayerHealth(match.getPlayer01()) - dmg);
             } else {
@@ -171,12 +311,8 @@ public class MatchService {
             }
 
             resultDesc = String.format("%s: карта %s нанесла %d урона игроку %s (HP -> %d)",
-                    attacker.getName(),
-                    myCardInstance.base.getName(),
-                    dmg,
-                    defender.getName(),
-                    match.getPlayerHealth(defender)
-            );
+                    attacker.getName(), myCardInstance.base.getName(), dmg,
+                    defender.getName(), match.getPlayerHealth(defender));
 
             if (match.getPlayerHealth(defender) <= 0) {
                 match.setWinner(attacker);
@@ -185,22 +321,38 @@ public class MatchService {
             }
         }
 
+        // 5) Добор карты (если колода пустая — даём случайную из всех карт, имитация бесконечной колоды)
         if (deck != null && !deck.isEmpty()) {
             Cards drawn = deck.poll();
             hand.add(drawn);
+        } else {
+            List<Cards> all = cardRepository.findAll();
+            if (!all.isEmpty()) {
+                Cards randomCard = all.get(rnd.nextInt(all.size()));
+                hand.add(randomCard);
+            }
         }
 
+        // 6) Сохраняем ход в Turn
         Turn saved = makeAndSaveTurn(match, attacker, cardToPlay, "PLAY", resultDesc);
 
+        // 7) Переключаем ход: даём ману следующему игроку (startTurnFor) и увеличиваем счетчик
         Long other = match.getPlayer01().getId().equals(playerId) ? match.getPlayer02().getId() : match.getPlayer01().getId();
         currentPlayer.put(matchId, other);
+
+        // startTurnFor на следующего игрока (увеличивает max и добавляет +1 к current, не выше max)
+        boolean otherIsP1 = match.getPlayer01().getId().equals(other);
+        startTurnFor(matchId, otherIsP1);
+
         turnCounter.put(matchId, turnCounter.getOrDefault(matchId, 1) + 1);
 
+        // 8) Сохраняем match (возможно изменилось здоровье или установлен победитель)
         matchRepository.save(match);
 
         return saved;
     }
 
+    // ============== Хелпер: создать и сохранить Turn ==============
     private Turn makeAndSaveTurn(Match match, User player, Cards card, String action, String description) {
         Turn t = new Turn();
         t.setMatch(match);
@@ -213,7 +365,7 @@ public class MatchService {
         return turnRepository.save(t);
     }
 
-    // ================== Доп. методы ==================
+    // ================== Доп. методы для фронта/отладки ==================
     public Optional<Match> getMatch(Long matchId) {
         return matchRepository.findById(matchId);
     }
@@ -249,7 +401,9 @@ public class MatchService {
             map.put("cardId", ipc.base.getId());
             map.put("name", ipc.base.getName());
             map.put("health", ipc.currentHealth);
-            map.put("damage", ipc.base.getDamage());
+            map.put("damage", ipc.base.getDamage() + ipc.bonusDamage);
+            map.put("taunt", ipc.taunt);
+            map.put("invulTurns", ipc.invulTurns);
             out.add(map);
         }
         return out;

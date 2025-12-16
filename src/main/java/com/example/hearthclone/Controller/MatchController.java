@@ -9,6 +9,8 @@ import com.example.hearthclone.model.Cards;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.ResponseEntity;
+
 
 import java.util.List;
 import java.util.Optional;
@@ -39,30 +41,17 @@ public class MatchController {
 
     // Игрок делает ход
     @PostMapping("/{matchId}/play")
-    public void playTurn(@PathVariable Long matchId,
-                         @RequestParam Long playerId,
-                         @RequestParam Long cardId,
-                         @RequestParam String target,
-                         @RequestParam String result,
-                         @RequestParam int turnNumber) {
-
-        Optional<Match> matchOpt = matchService.getMatch(matchId);
-        if (matchOpt.isEmpty()) return;
-
-        Match match = matchOpt.get();
-        User player = match.getPlayer01().getId().equals(playerId) ? match.getPlayer01() : match.getPlayer02();
-        Cards card = matchService.getCardFromService(cardId);
-
-        matchService.playTurn(
-                matchId,
-                playerId,
-                "PLAY",       // action
-                cardId,
-                null,         // targetCardId, если пока не используешь
-                null          // targetPlayerId, если пока не используешь
-        );
-
+    public ResponseEntity<?> playTurn(@PathVariable Long matchId,
+                                      @RequestParam Long playerId,
+                                      @RequestParam Long cardId) {
+        try {
+            Turn turn = matchService.playTurn(matchId, playerId, "PLAY", cardId, null, null);
+            return ResponseEntity.ok(turn);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        }
     }
+
 
     @GetMapping("/state/{id}")
     public MatchStateResponse getMatchState(@PathVariable Long id) {
