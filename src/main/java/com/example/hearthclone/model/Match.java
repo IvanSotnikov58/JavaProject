@@ -81,12 +81,13 @@ public class Match {
     }
 
     public Long getWinner() {
-        return winner.getId();
+        return (winner != null) ? winner.getId() : null;
+    }
+    public void setWinner(User winner) {
+        this.winner = winner;
     }
 
-    public User setWinner(User winner) {
-        return winner;
-    }
+
 
     public String getStatus() {
         return status;

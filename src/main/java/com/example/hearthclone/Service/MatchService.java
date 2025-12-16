@@ -1,10 +1,13 @@
 package com.example.hearthclone.Service;
 
 import com.example.hearthclone.Repository.TurnRepository;
+import com.example.hearthclone.config.MatchWebSocketHandler;
+import com.example.hearthclone.dto.MatchStateResponse;
 import com.example.hearthclone.model.*;
 import com.example.hearthclone.Repository.MatchRepository;
 import com.example.hearthclone.Repository.DeckRepository;
 import com.example.hearthclone.Repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -51,6 +54,31 @@ public class MatchService {
         return Optional.of(match);
     }
 
+    @Autowired
+    private MatchWebSocketHandler wsHandler;
+
+    public void playTurn(Match match, User player, Cards card, String target, String result, int turnNumber) {
+        Turn turn = turnService.playCard(match, player, card, target, result, turnNumber);
+
+        // Обновляем статус матча
+        if (turnNumber >= 10) {
+            match.setStatus("FINISHED");
+            matchRepository.save(match);
+        }
+
+        //sozdaem MatchStateResponse
+        MatchStateResponse state = new MatchStateResponse(
+                match.getId(),
+                match.getPlayer01(),
+                match.getPlayer02(),
+                turnService.getTurns(match),
+                match.getStatus()
+        );
+
+        // Отправляем всем подключённым клиентам
+        wsHandler.broadcast(state);
+    }
+
     private void dealCards(Match match, User player) {
         List<Decks> decks = deckRepository.findByPlayerId(player.getId());
         if (decks.isEmpty()) return;
@@ -62,16 +90,7 @@ public class MatchService {
         System.out.println("Разданы карты для " + player.getName() + ": " + cards);
     }
 
-    // igrok delaet hod
-    public void playTurn(Match match, User player, Cards card, String target, String result, int turnNumber) {
-        turnService.playCard(match, player, card, target, result, turnNumber);
 
-        // proverka okonchanija matcha
-        if (turnNumber >= 10) {
-            match.setStatus("FINISHED");
-            matchRepository.save(match);
-        }
-    }
 
     public Optional<Match> getMatch(Long matchId) {
         return matchRepository.findById(matchId);
