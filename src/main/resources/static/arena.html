@@ -73,7 +73,6 @@
     </header>
 
     <div class="board">
-        <!-- LEFT: deck + stats -->
         <div class="col small">
             <div class="section-title">Колода</div>
             <div class="deck-summary">
@@ -91,7 +90,7 @@
             </div>
         </div>
 
-        <!-- CENTER: battlefield -->
+
         <div class="col">
             <div class="section-title">Арена</div>
 
@@ -121,7 +120,7 @@
             </div>
         </div>
 
-        <!-- RIGHT: log -->
+
         <div class="col small">
             <div class="section-title">Лог</div>
             <div id="log" class="log"></div>
@@ -139,7 +138,7 @@
       } catch(e){ return { ok:false, error:e }; }
     }
 
-    // state
+
     let user = { id:null, name:null };
     let matchId = null;
     let hand = [];
@@ -149,9 +148,13 @@
     let currentMana = 0;
     let maxMana = 0;
 
+
+    let chosenDeck = null;
+    let localDeck = [];
+    const START_HAND = 3;
     const MAX_HAND = 6;
 
-    // UI refs
+
     const deckListEl = document.getElementById('deckList');
     const deckCountEl = document.getElementById('deckCount');
     const deckLeftEl = document.getElementById('deckLeft');
@@ -164,6 +167,15 @@
 
     function log(msg){ const div=document.createElement('div'); div.textContent = new Date().toLocaleTimeString() + ' - ' + msg; logEl.prepend(div); }
 
+
+    function shuffleInPlace(arr){
+      for(let i = arr.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+
+
     async function initPage(){
       user.id = localStorage.getItem('hc_userId');
       user.name = localStorage.getItem('hc_userName');
@@ -174,29 +186,36 @@
         log('Нет игрока'); return;
       }
 
-      // fetch decks
+
       const res = await fetchJsonSafe(`/decks/player/${user.id}`);
       if(!res.ok){ log('Ошибка загрузки колоды'); return; }
-let chosenDeck;
-if(Array.isArray(res.body) && res.body.length>0){
-    chosenDeck = res.body[res.body.length-1]; // берём последнюю созданную колоду
-} else if(res.body && res.body.id){
-    chosenDeck = res.body;
-} else if(res.body && res.body.decks && Array.isArray(res.body.decks) && res.body.decks.length>0){
-    chosenDeck = res.body.decks[res.body.decks.length-1];
-} else {
-    log('Колода пуста');
-    return;
-}
-renderDeckList(chosenDeck.cards || chosenDeck.cardList || chosenDeck.cardsList || []);
+
+      if(Array.isArray(res.body) && res.body.length>0){
+          chosenDeck = res.body[res.body.length-1];
+      } else if(res.body && res.body.id){
+          chosenDeck = res.body;
+      } else if(res.body && res.body.decks && Array.isArray(res.body.decks) && res.body.decks.length>0){
+          chosenDeck = res.body.decks[res.body.decks.length-1];
+      } else {
+          log('Колода пуста');
+          return;
+      }
+
+      const cardsArr = chosenDeck.cards || chosenDeck.cardList || chosenDeck.cardsList || [];
+      renderDeckList(cardsArr);
 
 
-      // create match
+      deckLeft = cardsArr.length;
+      deckLeftEl.textContent = deckLeft;
+
+      //пробуем создать матч, елси нет то локально
       const matchRes = await fetchJsonSafe(`/matches/create?player01=${user.id}&player02=${user.id}`);
       if(matchRes.ok && matchRes.body && matchRes.body.id){
         matchId = matchRes.body.id;
-        log('Матч создан: ' + matchId);
+        log('матч создан: ' + matchId);
         await refreshMatchState();
+      } else {
+        log('матч не создан');
       }
     }
 
@@ -211,21 +230,25 @@ renderDeckList(chosenDeck.cards || chosenDeck.cardList || chosenDeck.cardsList |
       deckCountEl.textContent = cards.length;
     }
 
+
     async function refreshMatchState(){
       if(!matchId) return;
       const res = await fetchJsonSafe(`/matches/${matchId}`);
       if(!res.ok || !res.body) return;
       const match = res.body;
-      turnCount = match.turnCounter||0;
+
+      turnCount = match.turnCounter ?? match.turnNumber ?? turnCount;
+
       const handRes = await fetchJsonSafe(`/matches/${matchId}/hand/${user.id}`);
-      hand = handRes.ok ? handRes.body : [];
+      hand = handRes.ok && Array.isArray(handRes.body) ? handRes.body : [];
       const fieldRes = await fetchJsonSafe(`/matches/${matchId}/field/${user.id}`);
-      field = fieldRes.ok ? fieldRes.body : [];
-      deckLeft = handRes.ok && handRes.body? match.player01DeckCount : 0;
-      currentMana = matchRes.body ? matchRes.body.currentMana || 0 : 0;
-      maxMana = matchRes.body ? matchRes.body.maxMana || 0 : 0;
+      field = fieldRes.ok && Array.isArray(fieldRes.body) ? fieldRes.body : [];
+      deckLeft = match.player01DeckCount ?? deckLeft;
+      currentMana = match.currentMana ?? currentMana;
+      maxMana = match.maxMana ?? maxMana;
       updateUI();
     }
+
 
     function updateUI(){
       turnCountEl.textContent = turnCount;
@@ -233,7 +256,7 @@ renderDeckList(chosenDeck.cards || chosenDeck.cardList || chosenDeck.cardsList |
       currentManaEl.textContent = currentMana;
       maxManaEl.textContent = maxMana;
 
-      // hand
+
       handArea.innerHTML = hand.length ? '' : '<div class="small-note">Рука пуста</div>';
       hand.forEach((c,idx)=>{
         const el = document.createElement('div');
@@ -244,34 +267,147 @@ renderDeckList(chosenDeck.cards || chosenDeck.cardList || chosenDeck.cardsList |
         handArea.appendChild(el);
       });
 
-      // field
+
       battleArea.innerHTML = field.length ? '' : '<div class="small-note">Поле пусто</div>';
       field.forEach(c=>{
         const el = document.createElement('div');
         el.className='card';
         el.style.width='120px';
-        el.innerHTML=`<div class="name">${c.name}</div><div class="meta">HP:${c.health} DMG:${c.damage} ${c.taunt?'TAUNT':''}</div>`;
+        el.innerHTML=`<div class="name">${c.name}</div><div class="meta">HP:${c.health ?? '-'} DMG:${c.damage ?? '-'} ${c.taunt?'TAUNT':''}</div>`;
         battleArea.appendChild(el);
       });
     }
 
-    async function playCard(index){
-      if(index<0 || index>=hand.length || !matchId) return;
-      const card = hand[index];
-      const res = await fetchJsonSafe(`/matches/${matchId}/play?playerId=${user.id}&cardId=${card.id}&action=PLAY`);
-      if(res.ok) {
-        log('Сыграна карта: ' + card.name);
-        await refreshMatchState();
-      } else {
-        log('Не удалось сыграть карту: ' + (res.status||res.error));
-      }
+
+    function localResetState(){
+      const cardsArr = chosenDeck ? (chosenDeck.cards || chosenDeck.cardList || chosenDeck.cardsList || []) : [];
+      localDeck = cardsArr.map(c => ({...c}));
+      shuffleInPlace(localDeck);
+      hand = [];
+      field = [];
+      turnCount = 0;
+      currentMana = 1; //начальная мана
+      maxMana = 1;
+      deckLeft = localDeck.length;
+      updateUI();
+      log('Локальное состояние сброшено');
     }
 
+    function localDrawCard(incTurn = true){
+      if(localDeck.length === 0){
+        log('Нельзя взять: локальная колода пуста');
+        return;
+      }
+      if(hand.length >= MAX_HAND){
+        log('Нельзя взять: рука полна ('+MAX_HAND+')');
+        return;
+      }
+      const card = localDeck.shift();
+      hand.push(card);
+      deckLeft = localDeck.length;
+      if(incTurn) turnCount++;
+      updateUI();
+      log('Взята карта (локально): ' + (card.name || card.id));
+    }
+
+    async function startLocalMatch(){
+      if(!chosenDeck){
+        log('Нет загруженной колоды для старта');
+        return;
+      }
+      localResetState();
+      for(let i=0;i<START_HAND;i++) localDrawCard(false);
+      turnCount = 0;
+      updateUI();
+      log('Локальный матч стартовал, рука из ' + START_HAND + ' карт');
+    }
+
+
+    async function playCard(index){
+      if(index<0 || index>=hand.length) return;
+
+
+      if(matchId){
+        const card = hand[index];
+        const res = await fetchJsonSafe(`/matches/${matchId}/play?playerId=${user.id}&cardId=${card.id}&action=PLAY`);
+        if(res.ok){
+          log('Сыграна карта (сервер): ' + card.name);
+          await refreshMatchState();
+        } else {
+          log('Не удалось сыграть карту: ' + (res.status || res.error));
+        }
+        return;
+      }
+
+
+      const card = hand[index];
+      const cost = card.cost ?? 0;
+      if(currentMana < cost){
+        log('Недостаточно маны для этой карты (стоимость ' + cost + ', есть ' + currentMana + ')');
+        return;
+      }
+
+      currentMana -= cost;
+
+      const cardInstance = {
+        id: card.id,
+        name: card.name,
+        damage: card.damage ?? 0,
+        health: card.health ?? 0,
+        taunt: (card.effectKey === 'TAUNT')
+      };
+
+      hand.splice(index,1);
+      field.push(cardInstance);
+
+      turnCount++;
+      if(localDeck.length > 0) localDrawCard(false);
+      deckLeft = localDeck.length;
+      updateUI();
+      log('Сыграна карта (локально): ' + card.name + ' cost ' + cost);
+    }
+
+
     document.getElementById('btnStart').addEventListener('click', async ()=>{
-      log('Матч старт');
-      await refreshMatchState();
+      log('Start pressed');
+      if(matchId){
+        await refreshMatchState();
+        log('Состояние обновлено с сервера (matchId=' + matchId + ')');
+        return;
+      }
+      await startLocalMatch();
     });
 
+    document.getElementById('btnShuffle').addEventListener('click', ()=>{
+      if(localDeck && localDeck.length>0){
+        shuffleInPlace(localDeck);
+        log(' колода перемешана');
+        updateUI();
+        return;
+      }
+
+      if(chosenDeck){
+        localDeck = (chosenDeck.cards || chosenDeck.cardList || []).map(c=>({...c}));
+        shuffleInPlace(localDeck);
+        log('Колода перемешана);
+        deckLeft = localDeck.length;
+        updateUI();
+        return;
+      }
+      log('Нет колоды для перемешивания');
+    });
+
+    document.getElementById('btnReset').addEventListener('click', ()=>{
+      if(matchId){
+        log('Reset ignored for server match (refreshing instead)');
+        refreshMatchState();
+        return;
+      }
+      localResetState();
+      log('Reset выполнен (локально)');
+    });
+
+    // start
     initPage();
 </script>
 </body>
